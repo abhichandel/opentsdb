@@ -19,6 +19,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.SortedMap;
+import java.util.SortedSet;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 import org.hbase.async.Bytes.ByteMap;
 import org.jboss.netty.handler.codec.http.HttpMethod;
@@ -30,10 +35,13 @@ import com.stumbleupon.async.Callback;
 import com.stumbleupon.async.Deferred;
 import com.stumbleupon.async.DeferredGroupException;
 
+import net.opentsdb.core.DataPoint;
 import net.opentsdb.core.DataPoints;
 import net.opentsdb.core.IncomingDataPoint;
+import net.opentsdb.core.MutableDataPoint;
 import net.opentsdb.core.Query;
 import net.opentsdb.core.RateOptions;
+import net.opentsdb.core.SeekableView;
 import net.opentsdb.core.TSDB;
 import net.opentsdb.core.TSQuery;
 import net.opentsdb.core.TSSubQuery;
@@ -42,6 +50,7 @@ import net.opentsdb.meta.Annotation;
 import net.opentsdb.meta.TSMeta;
 import net.opentsdb.meta.TSUIDQuery;
 import net.opentsdb.uid.UniqueId;
+import net.opentsdb.utils.DateTime;
 import net.opentsdb.utils.JSON;
 
 /**
@@ -342,6 +351,10 @@ final class QueryRpc implements HttpRpc {
     data_query.setStart(query.getRequiredQueryStringParam("start"));
     data_query.setEnd(query.getQueryStringParam("end"));
     
+    if (query.hasQueryStringParam("tz")) {
+    	data_query.setTimezone(query.getQueryStringParam("tz"));
+    }
+    
     if (query.hasQueryStringParam("padding")) {
       data_query.setPadding(true);
     }
@@ -513,36 +526,10 @@ final class QueryRpc implements HttpRpc {
        throw new BadRequestException("Invalid rate options specification: "
            + spec);
      }
-
-     String[] parts = Tags
-         .splitString(spec.substring(5, spec.length() - 1), ',');
-     if (parts.length < 1 || parts.length > 3) {
-       throw new BadRequestException(
-           "Incorrect number of values in rate options specification, must be " +
-           "counter[,counter max value,reset value], recieved: "
-               + parts.length + " parts");
-     }
-
-     final boolean counter = "counter".equals(parts[0]);
-     try {
-       final long max = (parts.length >= 2 && parts[1].length() > 0 ? Long
-           .parseLong(parts[1]) : Long.MAX_VALUE);
-       try {
-         final long reset = (parts.length >= 3 && parts[2].length() > 0 ? Long
-             .parseLong(parts[2]) : RateOptions.DEFAULT_RESET_VALUE);
-         return new RateOptions(counter, max, reset);
-       } catch (NumberFormatException e) {
-         throw new BadRequestException(
-             "Reset value of counter was not a number, received '" + parts[2]
-                 + "'");
-       }
-     } catch (NumberFormatException e) {
-       throw new BadRequestException(
-           "Max value of counter was not a number, received '" + parts[1] + "'");
-     }
+     return RateOptions.parseRateOptions(spec.substring(5, spec.length() - 1));
    }
 
-  /**
+/**
    * Parses a last point query from the URI string
    * @param tsdb The TSDB to which we belong
    * @param http_query The HTTP query to work with

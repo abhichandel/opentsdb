@@ -29,6 +29,22 @@ public class Downsampler implements SeekableView, DataPoint {
   /** Last value as a double */
   private double value;
   
+//  /**
+//   * Ctor.
+//   * @param source The iterator to access the underlying data.
+//   * @param interval_ms The interval in milli seconds wanted between each data
+//   * point.
+//   * @param downsampler The downsampling function to use.
+//   */
+//  Downsampler(final SeekableView source,
+//              final long interval_ms,
+//              final Aggregator downsampler,
+//              final long offset) {
+//	  //TODO: take this from constructor
+//    this.values_in_interval = new ValuesInInterval(source, interval_ms, offset);
+//    this.downsampler = downsampler;
+//  }
+  
   /**
    * Ctor.
    * @param source The iterator to access the underlying data.
@@ -38,9 +54,17 @@ public class Downsampler implements SeekableView, DataPoint {
    */
   Downsampler(final SeekableView source,
               final long interval_ms,
-              final Aggregator downsampler) {
-    this.values_in_interval = new ValuesInInterval(source, interval_ms);
-    this.downsampler = downsampler;
+              final Aggregator downsampler,
+              final long offset,
+              final RateOptions options) {
+	if(options.isCounter()){
+		this.values_in_interval = new CounterValuesInInterval(source, interval_ms, offset, options.getCounterMax(), options.getResetValue());
+	    this.downsampler = downsampler;
+	} else {
+		this.values_in_interval = new ValuesInInterval(source, interval_ms, offset);
+	    this.downsampler = downsampler;
+	}
+    
   }
 
   // ------------------ //
@@ -109,15 +133,17 @@ public class Downsampler implements SeekableView, DataPoint {
   private static class ValuesInInterval implements Aggregator.Doubles {
 
     /** The iterator of original source values. */
-    private final SeekableView source;
+    protected final SeekableView source;
     /** The sampling interval in milliseconds. */
-    private final long interval_ms;
+    protected final long interval_ms;
+    
+    protected final long offset;
     /** The end of the current interval. */
-    private long timestamp_end_interval = Long.MIN_VALUE;
+    protected long timestamp_end_interval = Long.MIN_VALUE;
     /** True if the last value was successfully extracted from the source. */
-    private boolean has_next_value_from_source = false;
+    protected boolean has_next_value_from_source = false;
     /** The last data point extracted from the source. */
-    private DataPoint next_dp = null;
+    protected DataPoint next_dp = null;
 
     /** True if it is initialized for iterating intervals. */
     private boolean initialized = false;
@@ -127,10 +153,11 @@ public class Downsampler implements SeekableView, DataPoint {
      * @param source The iterator to access the underlying data.
      * @param interval_ms Downsampling interval.
      */
-    ValuesInInterval(final SeekableView source, final long interval_ms) {
+    ValuesInInterval(final SeekableView source, final long interval_ms, final long offset) {
       this.source = source;
       this.interval_ms = interval_ms;
       this.timestamp_end_interval = interval_ms;
+      this.offset = offset;
     }
 
     /** Initializes to iterate intervals. */
@@ -193,7 +220,7 @@ public class Downsampler implements SeekableView, DataPoint {
 
     /** Returns timestamp aligned by interval. */
     private long alignTimestamp(long timestamp) {
-      return timestamp - (timestamp % interval_ms);
+      return timestamp - ((timestamp - offset) % interval_ms);
     }
 
     // ---------------------- //
@@ -231,6 +258,89 @@ public class Downsampler implements SeekableView, DataPoint {
       }
       buf.append(", source=").append(source);
       return buf.toString();
+    }
+  }
+  
+  /** Iterates source values for an interval. */
+  private static class CounterValuesInInterval extends ValuesInInterval {
+
+    /** The last data point extracted from the source. */
+    private final long maxValue;
+    private final long resetRate;
+
+    /**
+     * Constructor.
+     * @param source The iterator to access the underlying data.
+     * @param options Rate options for this interval
+     */
+    CounterValuesInInterval(final SeekableView source, final long interval_ms, final long offset, final long max, final long resetRate) {
+      super(source, interval_ms, offset);
+      this.maxValue = max;
+      this.resetRate = resetRate;
+    }
+
+    /** Extracts the next value from the source. */
+    private void moveToNextValue() {
+    	super.moveToNextValue();
+    	//next to next value is also required to get the difference.
+        if(!source.hasNext()){
+        	has_next_value_from_source = false;
+        }
+    }
+
+    // ---------------------- //
+    // Doubles interface //
+    // ---------------------- //
+
+    @Override
+    public double nextDoubleValue() {    	
+      if (hasNextValue()) {
+    	MutableDataPoint prev_data = new MutableDataPoint();  
+        prev_data.reset(next_dp);
+        moveToNextValue();
+        final long t0 = prev_data.timestamp();
+        final long t1 = next_dp.timestamp();
+        if (t1 <= t0) {
+          throw new IllegalStateException(
+              "Next timestamp (" + t1 + ") is supposed to be "
+              + " strictly greater than the previous one (" + t0 + "), but it's"
+              + " not.  this=" + this);
+        }
+        double difference;
+        if (prev_data.isInteger() && next_dp.isInteger()) {
+          // NOTE: Calculates in the long type to avoid precision loss
+          // while converting long values to double values if both values are long.
+          // NOTE: Ignores the integer overflow.
+          difference = next_dp.longValue() - prev_data.longValue();
+        } else {
+          difference = next_dp.toDouble() - prev_data.toDouble();
+        }
+        
+        if (difference < 0) {
+            if (prev_data.isInteger() && next_dp.isInteger()) {
+              // NOTE: Calculates in the long type to avoid precision loss
+              // while converting long values to double values if both values are long.
+              difference = maxValue - prev_data.longValue() +
+                  next_dp.longValue();
+            } else {
+              difference = maxValue - prev_data.toDouble() +
+                  next_dp.toDouble();
+            }
+        }
+        
+        if(difference/(t1 - t0) > resetRate){
+        	if (prev_data.isInteger() && next_dp.isInteger()) {
+                // NOTE: Calculates in the long type to avoid precision loss
+                // while converting long values to double values if both values are long.
+                difference = next_dp.longValue();
+              } else {
+                difference = next_dp.toDouble();
+              }
+        }
+        return difference;
+      }
+      throw new NoSuchElementException("no more values in interval of "
+          + timestamp_end_interval);
     }
   }
 }

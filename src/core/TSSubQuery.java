@@ -154,7 +154,14 @@ public final class TSSubQuery {
             + downsample + "' in [" + downsample + "]");
       }
       try {
-        downsampler = Aggregators.get(downsample.substring(dash + 1));
+    	  if(downsample.contains("{")){
+    		  // counter options are present 
+    		  final int curlyBrace = downsample.indexOf('{', 1);
+    		  downsampler = Aggregators.get(downsample.substring(dash + 1, curlyBrace));
+    		  rate_options = RateOptions.parseRateOptions(downsample.substring(curlyBrace + 1, downsample.length() - 1));
+    	  } else {
+    		  downsampler = Aggregators.get(downsample.substring(dash + 1));
+    	  }
       } catch (NoSuchElementException e) {
         throw new IllegalArgumentException("No such downsampling function: "
             + downsample.substring(dash + 1));

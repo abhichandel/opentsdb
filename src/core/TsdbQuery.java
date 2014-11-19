@@ -117,6 +117,11 @@ final class TsdbQuery implements Query {
 
   /** Minimum time interval (in milliseconds) wanted between each data point. */
   private long sample_interval_ms;
+  
+  /**
+   * offset from UTC for a timezone
+   */
+  private long offset_for_tz;
 
   /** Optional list of TSUIDs to fetch and aggregate instead of a metric */
   private List<String> tsuids;
@@ -125,7 +130,7 @@ final class TsdbQuery implements Query {
   public TsdbQuery(final TSDB tsdb) {
     this.tsdb = tsdb;
   }
-
+  
   /**
    * Sets the start time for the query
    * @param timestamp Unix epoch timestamp in seconds or milliseconds
@@ -255,12 +260,15 @@ final class TsdbQuery implements Query {
    * @throws IllegalArgumentException if the interval is not greater than 0
    */
   @Override
-  public void downsample(final long interval, final Aggregator downsampler) {
+  public void downsample(final long interval, final Aggregator downsampler, final long offset_for_tz) {
     if (downsampler == null) {
       throw new NullPointerException("downsampler");
     } else if (interval <= 0) {
       throw new IllegalArgumentException("interval not > 0: " + interval);
-    }
+    } else if(offset_for_tz != 30*60*1000 && offset_for_tz != 15*60*1000) { //this offset can be either (30|45)*60*1000
+		  throw new IllegalArgumentException("Invalid offset: " + offset_for_tz);
+	  }
+	  this.offset_for_tz = offset_for_tz;
     this.downsampler = downsampler;
     this.sample_interval_ms = interval;
   }
@@ -467,7 +475,7 @@ final class TsdbQuery implements Query {
                                               spans.values(),
                                               rate, rate_options,
                                               aggregator,
-                                              sample_interval_ms, downsampler);
+                                              sample_interval_ms, offset_for_tz, downsampler);
         return new SpanGroup[] { group };
       }
   
@@ -511,7 +519,7 @@ final class TsdbQuery implements Query {
           thegroup = new SpanGroup(tsdb, getScanStartTimeSeconds(),
                                    getScanEndTimeSeconds(),
                                    null, rate, rate_options, aggregator,
-                                   sample_interval_ms, downsampler);
+                                   sample_interval_ms, offset_for_tz, downsampler);
           // Copy the array because we're going to keep `group' and overwrite
           // its contents. So we want the collection to have an immutable copy.
           final byte[] group_copy = new byte[group.length];

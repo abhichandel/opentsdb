@@ -13,6 +13,7 @@
 package net.opentsdb.core;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -76,6 +77,11 @@ public final class TSQuery {
   private boolean ms_resolution;
   
   /**
+   * offset from UTC for a timezone
+   */
+  private long offset_for_tz;
+  
+  /**
    * Default constructor necessary for POJO de/serialization
    */
   public TSQuery() {
@@ -114,6 +120,9 @@ public final class TSQuery {
       throw new IllegalArgumentException("Missing queries");
     }
     
+    //if above checks are fine set timezone offset.
+    offset_for_tz = 60*60*1000 - DateTime.timezones.get(timezone).getOffset(Calendar.ZONE_OFFSET)%(60*60*1000);
+    
     // validate queries
     for (TSSubQuery sub : queries) {
       sub.validateAndSetQuery();
@@ -136,11 +145,11 @@ public final class TSQuery {
       query.setStartTime(start_time);
       query.setEndTime(end_time);
       if (sub.downsampler() != null) {
-        query.downsample(sub.downsampleInterval(), sub.downsampler());
+        query.downsample(sub.downsampleInterval(), sub.downsampler(), offset_for_tz);
       } else if (!ms_resolution) {
         // we *may* have multiple millisecond data points in the set so we have
         // to downsample. use the sub query's aggregator
-        query.downsample(1000, sub.aggregator());
+        query.downsample(1000, sub.aggregator(), offset_for_tz);
       }
       if (sub.getTsuids() != null && !sub.getTsuids().isEmpty()) {
         if (sub.getRateOptions() != null) {
@@ -295,7 +304,15 @@ public final class TSQuery {
     this.timezone = timezone;
   }
 
-  /** @param options a map of options to pass on to the serializer */
+  public long getOffset_for_tz() {
+	return offset_for_tz;
+}
+
+public void setOffset_for_tz(long offset_for_tz) {
+	this.offset_for_tz = offset_for_tz;
+}
+
+/** @param options a map of options to pass on to the serializer */
   public void setOptions(HashMap<String, ArrayList<String>> options) {
     this.options = options;
   }

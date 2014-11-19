@@ -153,7 +153,7 @@ public interface Query {
    * @param downsampler Aggregation function to use to group data points
    * within an interval.
    */
-  void downsample(long interval, Aggregator downsampler);
+  void downsample(long interval, Aggregator downsampler, long offset_for_tz);
 
   /**
    * Runs this query.

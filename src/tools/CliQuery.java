@@ -240,7 +240,7 @@ final class CliQuery {
       }
       query.setTimeSeries(metric, tags, agg, rate, rate_options);
       if (downsample) {
-        query.downsample(interval, sampler);
+        query.downsample(interval, sampler, 0);
       }
       queries.add(query);
     }

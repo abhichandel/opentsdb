@@ -91,6 +91,11 @@ final class SpanGroup implements DataPoints {
 
   /** Minimum time interval (in seconds) wanted between each data point. */
   private final long sample_interval;
+  
+  /**
+   * offset from UTC for a timezone
+   */
+  private final long offset_for_tz;
 
   /**
    * Ctor.
@@ -113,10 +118,10 @@ final class SpanGroup implements DataPoints {
             final Iterable<Span> spans,
             final boolean rate,
             final Aggregator aggregator,
-            final long interval, final Aggregator downsampler) {
+            final long interval, final long offset_for_tz, final Aggregator downsampler) {
     this(tsdb, start_time, end_time, spans, rate, new RateOptions(false,
         Long.MAX_VALUE, RateOptions.DEFAULT_RESET_VALUE), aggregator, interval,
-        downsampler);
+        offset_for_tz, downsampler);
   }
 
   /**
@@ -142,7 +147,7 @@ final class SpanGroup implements DataPoints {
             final Iterable<Span> spans,
             final boolean rate, final RateOptions rate_options,
             final Aggregator aggregator,
-            final long interval, final Aggregator downsampler) {
+            final long interval, long offset_for_tz, final Aggregator downsampler) {
     annotations = new ArrayList<Annotation>();
     this.start_time = (start_time & Const.SECOND_MASK) == 0 ? start_time * 1000 : start_time;
     this.end_time = (end_time & Const.SECOND_MASK) == 0 ? end_time * 1000 : end_time;
@@ -156,6 +161,7 @@ final class SpanGroup implements DataPoints {
     this.aggregator = aggregator;
     this.downsampler = downsampler;
     this.sample_interval = interval;
+    this.offset_for_tz = offset_for_tz;
   }
 
   /**
@@ -378,7 +384,7 @@ final class SpanGroup implements DataPoints {
   public SeekableView iterator() {
     return AggregationIterator.create(spans, start_time, end_time, aggregator,
                                   aggregator.interpolationMethod(),
-                                  downsampler, sample_interval,
+                                  downsampler, sample_interval, offset_for_tz,
                                   rate, rate_options);
   }
 

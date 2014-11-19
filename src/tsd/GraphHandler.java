@@ -877,9 +877,9 @@ final class GraphHandler implements HttpRpc {
                                         + parts[1].substring(dash + 1));
         }
         final long interval = DateTime.parseDuration(parts[1].substring(0, dash));
-        tsdbquery.downsample(interval, downsampler);
+        tsdbquery.downsample(interval, downsampler, 0);
       } else {
-        tsdbquery.downsample(1000, agg);
+        tsdbquery.downsample(1000, agg, 0);
       }
       tsdbqueries[nqueries++] = tsdbquery;
     }

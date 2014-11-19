@@ -430,7 +430,9 @@ final class Span implements DataPoints {
    * @param downsampler The downsampling function to use.
    */
   Downsampler downsampler(final long interval_ms,
-                          final Aggregator downsampler) {
-    return new Downsampler(spanIterator(), interval_ms, downsampler);
+                          final Aggregator downsampler,
+                          final long offset,
+                          final RateOptions options) {
+    return new Downsampler(spanIterator(), interval_ms, downsampler, offset, options);
   }
 }
