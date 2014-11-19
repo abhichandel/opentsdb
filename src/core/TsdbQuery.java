@@ -265,12 +265,24 @@ final class TsdbQuery implements Query {
       throw new NullPointerException("downsampler");
     } else if (interval <= 0) {
       throw new IllegalArgumentException("interval not > 0: " + interval);
-    } else if(offset_for_tz != 30*60*1000 && offset_for_tz != 15*60*1000) { //this offset can be either (30|45)*60*1000
+    } else if(offset_for_tz != 30*60*1000 && offset_for_tz != 15*60*1000 && offset_for_tz != 0) { //this offset can be either (0|30|45)*60*1000
 		  throw new IllegalArgumentException("Invalid offset: " + offset_for_tz);
 	  }
 	  this.offset_for_tz = offset_for_tz;
     this.downsampler = downsampler;
     this.sample_interval_ms = interval;
+  }
+  
+  /**
+   * Sets an optional downsampling function on this query
+   * @param interval The interval, in milliseconds to rollup data points
+   * @param downsampler An aggregation function to use when rolling up data points
+   * @throws NullPointerException if the aggregation function is null
+   * @throws IllegalArgumentException if the interval is not greater than 0
+   */
+  @Override
+  public void downsample(final long interval, final Aggregator downsampler) {
+	  downsample(interval, downsampler, 0);
   }
 
   /**

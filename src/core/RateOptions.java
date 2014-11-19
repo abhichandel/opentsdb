@@ -136,15 +136,7 @@ public class RateOptions {
 		       try {
 		         final long reset = (parts.length >= 3 && parts[2].length() > 0 ? Long
 		             .parseLong(parts[2]) : RateOptions.DEFAULT_RESET_VALUE);
-		         try {
-		             final long interval = (parts.length >= 4 && parts[3].length() > 0 ? 
-		            		 DateTime.parseDuration(parts[3]) : RateOptions.DEFAULT_INTERVAL);
-		             return new RateOptions(counter, max, reset,interval);
-		           } catch (NumberFormatException e) {
-		             throw new IllegalArgumentException(
-		                 "Reset value of counter was not a number, received '" + parts[2]
-		                     + "'");
-		           }
+		         return new RateOptions(counter, max, reset);
 		       } catch (NumberFormatException e) {
 		         throw new IllegalArgumentException(
 		             "Reset value of counter was not a number, received '" + parts[2]

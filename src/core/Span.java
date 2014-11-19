@@ -435,4 +435,28 @@ final class Span implements DataPoints {
                           final RateOptions options) {
     return new Downsampler(spanIterator(), interval_ms, downsampler, offset, options);
   }
+  
+  
+  /**
+   * Package private iterator method to access data while downsampling.
+   * @param interval_ms The interval in milli seconds wanted between each data
+   * point.
+   * @param downsampler The downsampling function to use.
+   */
+  Downsampler downsampler(final long interval_ms,
+                          final Aggregator downsampler) {
+    return new Downsampler(spanIterator(), interval_ms, downsampler);
+  }
+  
+  /**
+   * Package private iterator method to access data while downsampling.
+   * @param interval_ms The interval in milli seconds wanted between each data
+   * point.
+   * @param downsampler The downsampling function to use.
+   */
+  Downsampler downsampler(final long interval_ms,
+                          final Aggregator downsampler,
+                          final long offset) {
+    return new Downsampler(spanIterator(), interval_ms, downsampler, offset);
+  }
 }

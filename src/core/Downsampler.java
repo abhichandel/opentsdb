@@ -29,21 +29,34 @@ public class Downsampler implements SeekableView, DataPoint {
   /** Last value as a double */
   private double value;
   
-//  /**
-//   * Ctor.
-//   * @param source The iterator to access the underlying data.
-//   * @param interval_ms The interval in milli seconds wanted between each data
-//   * point.
-//   * @param downsampler The downsampling function to use.
-//   */
-//  Downsampler(final SeekableView source,
-//              final long interval_ms,
-//              final Aggregator downsampler,
-//              final long offset) {
-//	  //TODO: take this from constructor
-//    this.values_in_interval = new ValuesInInterval(source, interval_ms, offset);
-//    this.downsampler = downsampler;
-//  }
+  /**
+   * Ctor.
+   * @param source The iterator to access the underlying data.
+   * @param interval_ms The interval in milli seconds wanted between each data
+   * point.
+   * @param downsampler The downsampling function to use.
+   */
+  Downsampler(final SeekableView source,
+              final long interval_ms,
+              final Aggregator downsampler) {
+	  this(source, interval_ms, downsampler, 0);
+  }
+  
+  /**
+   * Ctor.
+   * @param source The iterator to access the underlying data.
+   * @param interval_ms The interval in milli seconds wanted between each data
+   * point.
+   * @param downsampler The downsampling function to use.
+   */
+  Downsampler(final SeekableView source,
+              final long interval_ms,
+              final Aggregator downsampler,
+              final long offset) {
+	  //TODO: take this from constructor
+    this.values_in_interval = new ValuesInInterval(source, interval_ms, offset);
+    this.downsampler = downsampler;
+  }
   
   /**
    * Ctor.
