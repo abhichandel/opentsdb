@@ -20,6 +20,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.TreeMap;
 
 import org.slf4j.Logger;
@@ -37,6 +38,7 @@ import static org.hbase.async.Bytes.ByteMap;
 import net.opentsdb.stats.Histogram;
 import net.opentsdb.uid.NoSuchUniqueName;
 import net.opentsdb.uid.UniqueId;
+import net.opentsdb.utils.DateTime;
 
 /**
  * Non-synchronized implementation of {@link Query}.
@@ -119,9 +121,16 @@ final class TsdbQuery implements Query {
   private long sample_interval_ms;
   
   /**
-   * offset from UTC for a timezone
+   * TimeZone for the query
    */
-  private long offset_for_tz;
+  private TimeZone tz;
+  
+  
+  /**
+   * Dimension for downsampling like month, year etc. It is specified as 1d, 2d, ..., 1m, 2m, 3m ..., 1y, 2y, .... 
+   * 1m is equivalent to monthly, 3m is equivalent to quarterly.  
+   */
+  private String dimension;
 
   /** Optional list of TSUIDs to fetch and aggregate instead of a metric */
   private List<String> tsuids;
@@ -260,15 +269,21 @@ final class TsdbQuery implements Query {
    * @throws IllegalArgumentException if the interval is not greater than 0
    */
   @Override
-  public void downsample(final long interval, final Aggregator downsampler, final long offset_for_tz) {
+  public void downsample(final long interval, final Aggregator downsampler, final String dimension, final TimeZone tz) {
     if (downsampler == null) {
       throw new NullPointerException("downsampler");
     } else if (interval <= 0) {
       throw new IllegalArgumentException("interval not > 0: " + interval);
-    } else if(offset_for_tz != 30*60*1000 && offset_for_tz != 15*60*1000 && offset_for_tz != 0) { //this offset can be either (0|30|45)*60*1000
-		  throw new IllegalArgumentException("Invalid offset: " + offset_for_tz);
-	  }
-	  this.offset_for_tz = offset_for_tz;
+    } if (dimension == null) {
+    	throw new IllegalArgumentException("dimension cannot be empty" + dimension);
+    }
+    
+    if(tz == null){
+    	this.tz = DateTime.timezones.get("UTC");
+    } else {
+    	this.tz = tz;
+    }
+    this.dimension = dimension;
     this.downsampler = downsampler;
     this.sample_interval_ms = interval;
   }
@@ -282,7 +297,7 @@ final class TsdbQuery implements Query {
    */
   @Override
   public void downsample(final long interval, final Aggregator downsampler) {
-	  downsample(interval, downsampler, 0);
+	  downsample(interval, downsampler, "", DateTime.timezones.get("UTC"));
   }
 
   /**
@@ -487,7 +502,10 @@ final class TsdbQuery implements Query {
                                               spans.values(),
                                               rate, rate_options,
                                               aggregator,
-                                              sample_interval_ms, offset_for_tz, downsampler);
+                                              sample_interval_ms,
+                                              dimension,
+                                              tz, 
+                                              downsampler);
         return new SpanGroup[] { group };
       }
   
@@ -531,7 +549,7 @@ final class TsdbQuery implements Query {
           thegroup = new SpanGroup(tsdb, getScanStartTimeSeconds(),
                                    getScanEndTimeSeconds(),
                                    null, rate, rate_options, aggregator,
-                                   sample_interval_ms, offset_for_tz, downsampler);
+                                   sample_interval_ms, dimension, tz, downsampler);
           // Copy the array because we're going to keep `group' and overwrite
           // its contents. So we want the collection to have an immutable copy.
           final byte[] group_copy = new byte[group.length];
@@ -614,7 +632,7 @@ final class TsdbQuery implements Query {
     if ((start & Const.SECOND_MASK) != 0) {
       start /= 1000;
     }
-    final long ts = start - Const.MAX_TIMESPAN * 2 - sample_interval_ms / 1000;
+    final long ts = start - Const.MAX_TIMESPAN * 2 - (sample_interval_ms < 3600*1000*24 ?  sample_interval_ms/1000 :  Const.MAX_TIMESPAN*2);
     return ts > 0 ? ts : 0;
   }
 
@@ -632,7 +650,7 @@ final class TsdbQuery implements Query {
     if ((end & Const.SECOND_MASK) != 0) {
       end /= 1000;
     }
-    return end + Const.MAX_TIMESPAN + 1 + sample_interval_ms / 1000;
+    return end + Const.MAX_TIMESPAN + 1 + (sample_interval_ms < 3600*1000*24 ?  sample_interval_ms/1000 :  Const.MAX_TIMESPAN*2);
   }
 
   /**

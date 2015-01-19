@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.TimeZone;
 
 import net.opentsdb.utils.DateTime;
 
@@ -68,6 +69,10 @@ public final class TSSubQuery {
   
   /** Parsed downsample interval */
   private long downsample_interval;
+  
+  private String dimension;
+  
+  private TimeZone tz;
   
   /**
    * Default constructor necessary for POJO de/serialization
@@ -166,8 +171,8 @@ public final class TSSubQuery {
         throw new IllegalArgumentException("No such downsampling function: "
             + downsample.substring(dash + 1));
       }
-      downsample_interval = DateTime.parseDuration(
-          downsample.substring(0, dash));
+      dimension = downsample.substring(0, dash); 
+      downsample_interval = DateTime.parseDuration(dimension);
     }
   }
 
@@ -186,7 +191,15 @@ public final class TSSubQuery {
     return this.downsample_interval;
   }
   
-  /** @return the user supplied aggregator */
+  public String getDimension() {
+	return dimension;
+}
+
+public void setDimension(String dimension) {
+	this.dimension = dimension;
+}
+
+/** @return the user supplied aggregator */
   public String getAggregator() {
     return aggregator;
   }

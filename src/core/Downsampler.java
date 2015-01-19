@@ -12,7 +12,9 @@
 // see <http://www.gnu.org/licenses/>.
 package net.opentsdb.core;
 
+import java.util.Calendar;
 import java.util.NoSuchElementException;
+import java.util.TimeZone;
 
 
 /**
@@ -23,7 +25,7 @@ public class Downsampler implements SeekableView, DataPoint {
   /** Function to use for downsampling. */
   private final Aggregator downsampler;
   /** Iterator to iterate the values of the current interval. */
-  private final ValuesInInterval values_in_interval;
+  private final IValuesInterval values_in_interval;
   /** Last normalized timestamp */ 
   private long timestamp;
   /** Last value as a double */
@@ -39,7 +41,8 @@ public class Downsampler implements SeekableView, DataPoint {
   Downsampler(final SeekableView source,
               final long interval_ms,
               final Aggregator downsampler) {
-	  this(source, interval_ms, downsampler, 0);
+	  this.values_in_interval = new ValuesInInterval(source, interval_ms, 0);
+	    this.downsampler = downsampler;
   }
   
   /**
@@ -52,32 +55,60 @@ public class Downsampler implements SeekableView, DataPoint {
   Downsampler(final SeekableView source,
               final long interval_ms,
               final Aggregator downsampler,
-              final long offset) {
-	  //TODO: take this from constructor
-    this.values_in_interval = new ValuesInInterval(source, interval_ms, offset);
-    this.downsampler = downsampler;
-  }
-  
-  /**
-   * Ctor.
-   * @param source The iterator to access the underlying data.
-   * @param interval_ms The interval in milli seconds wanted between each data
-   * point.
-   * @param downsampler The downsampling function to use.
-   */
-  Downsampler(final SeekableView source,
-              final long interval_ms,
-              final Aggregator downsampler,
-              final long offset,
+              final String dimension,
+              final TimeZone tz,
               final RateOptions options) {
-	if(options.isCounter()){
-		this.values_in_interval = new CounterValuesInInterval(source, interval_ms, offset, options.getCounterMax(), options.getResetValue());
-	    this.downsampler = downsampler;
+	  
+//              case 'm': multiplier = 60; break;               // minutes
+//              case 'h': multiplier = 3600; break;             // hours
+//              case 'w': multiplier = 3600 * 24 * 7; break;    // weeks
+//	int offset = 60*60*1000 - tz.getOffset(Calendar.ZONE_OFFSET)%(60*60*1000);;
+	long offset = tz.getOffset(Calendar.ZONE_OFFSET);
+	ValuesInInterval valuesInterval;
+	if(!options.isCounter()){
+		valuesInterval = new ValuesInInterval(source, 24*60*60*1000, offset);
+	} else if(options.getCounterType() == RateOptions.BIDIRECTIONAL_DECREMENT_COUNTER) {
+		valuesInterval = new DecCounterValuesInInterval(source, 24*60*60*1000, offset);
+	} else if(options.getCounterType() == RateOptions.BIDIRECTIONAL_INCREMEMNT_COUNTER) {
+		valuesInterval = new IncCounterValuesInInterval(source, 24*60*60*1000, offset);
 	} else {
-		this.values_in_interval = new ValuesInInterval(source, interval_ms, offset);
-	    this.downsampler = downsampler;
+		valuesInterval = new CounterValuesInInterval(source, 24*60*60*1000, offset, options.getCounterMax(), options.getResetValue());
 	}
-    
+	
+	switch (dimension.substring(dimension.length() - 1)) {
+	case "n":
+		this.values_in_interval = new MonthlyInterval(valuesInterval,tz ,downsampler);
+		break;
+	case "y":
+		this.values_in_interval = new YearlyInterval(valuesInterval, tz, downsampler);
+		break;
+	case "d":
+		this.values_in_interval = valuesInterval;
+		break;
+	default:
+		if(options.isCounter()){
+			if(options.getCounterType() == RateOptions.BIDIRECTIONAL_DECREMENT_COUNTER) {
+				this.values_in_interval = new DecCounterValuesInInterval(source, interval_ms, offset);
+			} else if(options.getCounterType() == RateOptions.BIDIRECTIONAL_INCREMEMNT_COUNTER) {
+				this.values_in_interval = new IncCounterValuesInInterval(source, interval_ms, offset);
+			} else {
+				this.values_in_interval = new CounterValuesInInterval(source, interval_ms, offset, options.getCounterMax(), options.getResetValue());
+			}
+		} else
+			this.values_in_interval = new ValuesInInterval(source, interval_ms, offset);
+		break;
+	}
+	
+	this.downsampler = downsampler;
+	
+//	if(options.isCounter()){
+		//offset_for_tz != 30*60*1000 && offset_for_tz != 15*60*1000 && offset_for_tz != 0) { //this offset can be either (0|30|45)*60*1000
+		//60*60*1000 - DateTime.timezones.get(timezone).getOffset(Calendar.ZONE_OFFSET)%(60*60*1000);
+//		this.values_in_interval = new CounterValuesInInterval(source, interval_ms, offset, options.getCounterMax(), options.getResetValue());
+//		this.values_in_interval = new YearlyInterval(new CounterValuesInInterval(source, 24*60*60*1000, 0, options.getCounterMax(), options.getResetValue()), downsampler);
+//		this.values_in_interval = new MonthlyInterval(new ValuesInInterval(source, interval_ms, 24*60*60*1000), downsampler);
+//	    this.downsampler = downsampler;
+//	}
   }
 
   // ------------------ //
@@ -114,7 +145,8 @@ public class Downsampler implements SeekableView, DataPoint {
   public String toString() {
     final StringBuilder buf = new StringBuilder();
     buf.append("Downsampler: ")
-       .append("interval_ms=").append(values_in_interval.interval_ms)
+    	//TODO: how to set interval
+//       .append("interval_ms=").append(values_in_interval.interval_ms)
        .append(", downsampler=").append(downsampler)
        .append(", current data=(timestamp=").append(timestamp)
        .append(", value=").append(value)
@@ -142,8 +174,168 @@ public class Downsampler implements SeekableView, DataPoint {
     return value;
   }
   
+  private static class YearlyInterval extends MonthlyInterval {
+		
+		public YearlyInterval(final IValuesInterval values_in_interval, final TimeZone tz, final Aggregator downsampler) {
+			super(values_in_interval, tz, downsampler);
+		}
+
+	    /**
+	     * Resets the current interval with the interval of the timestamp of
+	     * the next value read from source. It is the first value of the next
+	     * interval. */
+	    protected void resetEndOfInterval() {
+	      if (values_in_interval.hasNextValue()) {
+	    	  //TODO: set timezone
+	    	Calendar c = Calendar.getInstance(tz);
+	    	c.setTimeInMillis(values_in_interval.currentTimeSatamp());
+	    	c.set(c.get(Calendar.YEAR) + 1, Calendar.JANUARY, 1);
+	    	timestamp_end_interval = c.getTimeInMillis();
+	      }
+	    }
+
+	    /** Returns the representative timestamp of the current interval. */
+	    public long getIntervalTimestamp() {
+	      // NOTE: It is well-known practice taking the start time of
+	      // a downsample interval as a representative timestamp of it. It also
+	      // provides the correct context for seek.
+	    	Calendar c = Calendar.getInstance(tz);
+	    	c.setTimeInMillis(timestamp_end_interval);
+	    	c.set(c.get(Calendar.YEAR) - 1,Calendar.JANUARY, 1);
+	      return c.getTimeInMillis();
+	    }
+	    
+	    /** Advances the interval iterator to the given timestamp. */
+	    public void seekInterval(long timestamp) {
+	      // To make sure that the interval of the given timestamp is fully filled,
+	      // rounds up the seeking timestamp to the smallest timestamp that is
+	      // a multiple of the interval and is greater than or equal to the given
+	      // timestamp..
+	      Calendar c = Calendar.getInstance(tz);
+	      c.setTimeInMillis(timestamp);
+	      if(c.get(Calendar.DAY_OF_MONTH) != 1 && c.get(Calendar.MONTH) != Calendar.JANUARY) {
+	    	  c.set(c.get(Calendar.YEAR) + 1, Calendar.JANUARY, 1, 0, 0, 0);
+	      }
+	      values_in_interval.seekInterval(c.getTimeInMillis());
+	      initialized = false;
+	    }
+
+	  }
+  
+  private static class MonthlyInterval implements IValuesInterval {
+	
+	protected final IValuesInterval values_in_interval;
+	protected long timestamp_end_interval = Long.MIN_VALUE;
+	protected final Aggregator downsampler;
+	/** True if it is initialized for iterating intervals. */
+	protected boolean initialized = false;
+	protected final TimeZone tz;
+	
+	public MonthlyInterval(final IValuesInterval values_in_interval, final TimeZone tz, final Aggregator downsampler) {
+		this.values_in_interval = values_in_interval; 
+		this.downsampler = downsampler;
+		this.tz = tz;
+	}
+
+	/** Initializes to iterate intervals. */
+    private void initializeIfNotDone() {
+      // NOTE: Delay initialization is required to not access any data point
+      // from the source until a user requests it explicitly to avoid the severe
+      // performance penalty by accessing the unnecessary first data of a span.
+      if (!initialized) {
+        initialized = true;
+//        moveToNextValue();
+        resetEndOfInterval();
+      }
+    }
+    
+    /**
+     * Resets the current interval with the interval of the timestamp of
+     * the next value read from source. It is the first value of the next
+     * interval. */
+    protected void resetEndOfInterval() {
+      if (values_in_interval.hasNextValue()) {
+    	  //TODO: set timezone
+    	Calendar c = Calendar.getInstance(tz);
+    	c.setTimeInMillis(values_in_interval.currentTimeSatamp());
+    	int currMonth = c.get(Calendar.MONTH);
+    	if(currMonth < 11) {
+    		c.set(Calendar.MONTH, currMonth + 1);
+    		c.set(Calendar.DAY_OF_MONTH, 1);
+    	} else {
+    		c.set(c.get(Calendar.YEAR) + 1, Calendar.JANUARY, 1);
+    	}
+    	
+    	timestamp_end_interval = c.getTimeInMillis();
+      }
+    }
+
+    /** Moves to the next available interval. */
+    public void moveToNextInterval() {
+      initializeIfNotDone();
+      resetEndOfInterval();
+    }
+
+	@Override
+	public boolean hasNextValue() {
+		initializeIfNotDone();
+		return values_in_interval.hasNextValue() && values_in_interval.currentTimeSatamp() < timestamp_end_interval;
+	}
+	
+    /** Returns the representative timestamp of the current interval. */
+    public long getIntervalTimestamp() {
+      // NOTE: It is well-known practice taking the start time of
+      // a downsample interval as a representative timestamp of it. It also
+      // provides the correct context for seek.
+    	Calendar c = Calendar.getInstance(tz);
+    	c.setTimeInMillis(timestamp_end_interval);
+    	int currMonth = c.get(Calendar.MONTH);
+    	if(currMonth > Calendar.JANUARY) {
+    		c.set(Calendar.MONTH, currMonth - 1);
+    		c.set(Calendar.DAY_OF_MONTH, 1);
+    	} else {
+    		c.set(c.get(Calendar.YEAR) - 1, Calendar.DECEMBER, 1);
+    	}
+      return c.getTimeInMillis();
+    }
+    
+    /** Advances the interval iterator to the given timestamp. */
+    public void seekInterval(long timestamp) {
+      // To make sure that the interval of the given timestamp is fully filled,
+      // rounds up the seeking timestamp to the smallest timestamp that is
+      // a multiple of the interval and is greater than or equal to the given
+      // timestamp..
+      Calendar c = Calendar.getInstance(tz);
+      c.setTimeInMillis(timestamp);
+      if(c.get(Calendar.DAY_OF_MONTH) != 1) {
+    	  c.set(Calendar.MONTH, c.get(Calendar.MONTH) + 1);
+    	  c.set(Calendar.DAY_OF_MONTH, 1);
+      }
+      values_in_interval.seekInterval(c.getTimeInMillis());
+      initialized = false;
+    }
+
+	@Override
+	public double nextDoubleValue() {
+		if (hasNextValue()) {
+			double value = downsampler.runDouble(values_in_interval);
+			values_in_interval.moveToNextInterval();
+	        return value;
+	      }
+	      throw new NoSuchElementException("no more values in interval of "
+	          + timestamp_end_interval);
+	}
+
+	@Override
+	public long currentTimeSatamp() {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+  }
+  
+  
   /** Iterates source values for an interval. */
-  private static class ValuesInInterval implements Aggregator.Doubles {
+  private static class ValuesInInterval implements Aggregator.Doubles, IValuesInterval {
 
     /** The iterator of original source values. */
     protected final SeekableView source;
@@ -195,6 +387,10 @@ public class Downsampler implements SeekableView, DataPoint {
       }
     }
 
+    public long currentTimeSatamp() {
+    	return next_dp.timestamp();
+    }
+    
     /**
      * Resets the current interval with the interval of the timestamp of
      * the next value read from source. It is the first value of the next
@@ -208,13 +404,13 @@ public class Downsampler implements SeekableView, DataPoint {
     }
 
     /** Moves to the next available interval. */
-    void moveToNextInterval() {
+    public void moveToNextInterval() {
       initializeIfNotDone();
       resetEndOfInterval();
     }
 
     /** Advances the interval iterator to the given timestamp. */
-    void seekInterval(long timestamp) {
+    public void seekInterval(long timestamp) {
       // To make sure that the interval of the given timestamp is fully filled,
       // rounds up the seeking timestamp to the smallest timestamp that is
       // a multiple of the interval and is greater than or equal to the given
@@ -224,7 +420,7 @@ public class Downsampler implements SeekableView, DataPoint {
     }
 
     /** Returns the representative timestamp of the current interval. */
-    private long getIntervalTimestamp() {
+    public long getIntervalTimestamp() {
       // NOTE: It is well-known practice taking the start time of
       // a downsample interval as a representative timestamp of it. It also
       // provides the correct context for seek.
@@ -233,21 +429,27 @@ public class Downsampler implements SeekableView, DataPoint {
 
     /** Returns timestamp aligned by interval. */
     private long alignTimestamp(long timestamp) {
-      return timestamp - ((timestamp - offset) % interval_ms);
+      return timestamp - ((timestamp - offset*-1l) % interval_ms);
     }
 
     // ---------------------- //
     // Doubles interface //
     // ---------------------- //
 
-    @Override
+    /* (non-Javadoc)
+	 * @see net.opentsdb.core.IValuesInterval#hasNextValue()
+	 */
+	@Override
     public boolean hasNextValue() {
       initializeIfNotDone();
       return has_next_value_from_source &&
           next_dp.timestamp() < timestamp_end_interval;
     }
 
-    @Override
+    /* (non-Javadoc)
+	 * @see net.opentsdb.core.IValuesInterval#nextDoubleValue()
+	 */
+	@Override
     public double nextDoubleValue() {
       if (hasNextValue()) {
         double value = next_dp.toDouble();
@@ -271,6 +473,126 @@ public class Downsampler implements SeekableView, DataPoint {
       }
       buf.append(", source=").append(source);
       return buf.toString();
+    }
+  }
+  
+  /** Iterates source values for a decreasing interval and ignores the increment*/
+  private static class IncCounterValuesInInterval extends ValuesInInterval {
+
+    /**
+     * Constructor.
+     * @param source The iterator to access the underlying data.
+     * @param options Rate options for this interval
+     */
+	IncCounterValuesInInterval(final SeekableView source, final long interval_ms, final long offset) {
+      super(source, interval_ms, offset);
+    }
+
+    /** Extracts the next value from the source. */
+    private void moveToNextValue() {
+    	super.moveToNextValue();
+    	//next to next value is also required to get the difference.
+        if(!source.hasNext()){
+        	has_next_value_from_source = false;
+        }
+    }
+
+    // ---------------------- //
+    // Doubles interface //
+    // ---------------------- //
+
+    @Override
+    public double nextDoubleValue() {    	
+      if (hasNextValue()) {
+    	MutableDataPoint prev_data = new MutableDataPoint();  
+        prev_data.reset(next_dp);
+        moveToNextValue();
+        final long t0 = prev_data.timestamp();
+        final long t1 = next_dp.timestamp();
+        if (t1 <= t0) {
+          throw new IllegalStateException(
+              "Next timestamp (" + t1 + ") is supposed to be "
+              + " strictly greater than the previous one (" + t0 + "), but it's"
+              + " not.  this=" + this);
+        }
+        double difference;
+        if (prev_data.isInteger() && next_dp.isInteger()) {
+          // NOTE: Calculates in the long type to avoid precision loss
+          // while converting long values to double values if both values are long.
+          // NOTE: Ignores the integer overflow.
+          difference = next_dp.longValue() - prev_data.longValue();
+        } else {
+          difference = next_dp.toDouble() - prev_data.toDouble();
+        }
+        
+        if (difference < 0) {
+            difference = 0;
+        }
+        
+        return difference;
+      }
+      throw new NoSuchElementException("no more values in interval of "
+          + timestamp_end_interval);
+    }
+  }
+  
+  /** Iterates source values for a decreasing interval and ignores the increment*/
+  private static class DecCounterValuesInInterval extends ValuesInInterval {
+
+    /**
+     * Constructor.
+     * @param source The iterator to access the underlying data.
+     * @param options Rate options for this interval
+     */
+    DecCounterValuesInInterval(final SeekableView source, final long interval_ms, final long offset) {
+      super(source, interval_ms, offset);
+    }
+
+    /** Extracts the next value from the source. */
+    private void moveToNextValue() {
+    	super.moveToNextValue();
+    	//next to next value is also required to get the difference.
+        if(!source.hasNext()){
+        	has_next_value_from_source = false;
+        }
+    }
+
+    // ---------------------- //
+    // Doubles interface //
+    // ---------------------- //
+
+    @Override
+    public double nextDoubleValue() {    	
+      if (hasNextValue()) {
+    	MutableDataPoint prev_data = new MutableDataPoint();  
+        prev_data.reset(next_dp);
+        moveToNextValue();
+        final long t0 = prev_data.timestamp();
+        final long t1 = next_dp.timestamp();
+        if (t1 <= t0) {
+          throw new IllegalStateException(
+              "Next timestamp (" + t1 + ") is supposed to be "
+              + " strictly greater than the previous one (" + t0 + "), but it's"
+              + " not.  this=" + this);
+        }
+        double difference;
+        if (prev_data.isInteger() && next_dp.isInteger()) {
+          // NOTE: Calculates in the long type to avoid precision loss
+          // while converting long values to double values if both values are long.
+          // NOTE: Ignores the integer overflow.
+          difference = next_dp.longValue() - prev_data.longValue();
+        } else {
+          difference = next_dp.toDouble() - prev_data.toDouble();
+        }
+        
+        if (difference > 0) {
+            difference = 0;
+        }
+        
+        return difference;
+      }
+      throw new NoSuchElementException("no more values in interval of "
+          + timestamp_end_interval);
     }
   }
   
@@ -341,7 +663,7 @@ public class Downsampler implements SeekableView, DataPoint {
             }
         }
         
-        if(difference/(t1 - t0) > resetRate){
+        if(resetRate != 0 && difference/(t1 - t0) > resetRate){
         	if (prev_data.isInteger() && next_dp.isInteger()) {
                 // NOTE: Calculates in the long type to avoid precision loss
                 // while converting long values to double values if both values are long.

@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.TimeZone;
 
 import net.opentsdb.meta.Annotation;
 import net.opentsdb.uid.UniqueId;
@@ -431,9 +432,10 @@ final class Span implements DataPoints {
    */
   Downsampler downsampler(final long interval_ms,
                           final Aggregator downsampler,
-                          final long offset,
+                          final String dimension,
+                          final TimeZone tz,
                           final RateOptions options) {
-    return new Downsampler(spanIterator(), interval_ms, downsampler, offset, options);
+    return new Downsampler(spanIterator(), interval_ms, downsampler, dimension, tz, options);
   }
   
   
@@ -446,17 +448,5 @@ final class Span implements DataPoints {
   Downsampler downsampler(final long interval_ms,
                           final Aggregator downsampler) {
     return new Downsampler(spanIterator(), interval_ms, downsampler);
-  }
-  
-  /**
-   * Package private iterator method to access data while downsampling.
-   * @param interval_ms The interval in milli seconds wanted between each data
-   * point.
-   * @param downsampler The downsampling function to use.
-   */
-  Downsampler downsampler(final long interval_ms,
-                          final Aggregator downsampler,
-                          final long offset) {
-    return new Downsampler(spanIterator(), interval_ms, downsampler, offset);
   }
 }

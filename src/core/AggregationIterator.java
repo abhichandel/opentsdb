@@ -15,10 +15,12 @@ package net.opentsdb.core;
 import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.TimeZone;
 
 import com.google.common.annotations.VisibleForTesting;
 
 import net.opentsdb.core.Aggregators.Interpolation;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -220,7 +222,8 @@ final class AggregationIterator implements SeekableView, DataPoint,
                                            final Interpolation method,
                                            final Aggregator downsampler,
                                            final long sample_interval_ms,
-                                           final long offset_for_tz,
+                                           final String dimension,
+                                           final TimeZone tz,
                                            final boolean rate,
                                            final RateOptions rate_options) {
     final int size = spans.size();
@@ -230,7 +233,7 @@ final class AggregationIterator implements SeekableView, DataPoint,
       if (downsampler == null) {
         it = spans.get(i).spanIterator();
       } else {
-        it = spans.get(i).downsampler(sample_interval_ms, downsampler, offset_for_tz,rate_options);
+        it = spans.get(i).downsampler(sample_interval_ms, downsampler, dimension, tz,rate_options);
       }
       if (rate) {
         it = new RateSpan(it, rate_options);

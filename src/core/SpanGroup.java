@@ -18,9 +18,11 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 
 import com.stumbleupon.async.Callback;
 import com.stumbleupon.async.Deferred;
+
 import net.opentsdb.meta.Annotation;
 
 /**
@@ -95,7 +97,9 @@ final class SpanGroup implements DataPoints {
   /**
    * offset from UTC for a timezone
    */
-  private final long offset_for_tz;
+  private final TimeZone tz;
+  
+  private final String dimension;
 
   /**
    * Ctor.
@@ -118,10 +122,13 @@ final class SpanGroup implements DataPoints {
             final Iterable<Span> spans,
             final boolean rate,
             final Aggregator aggregator,
-            final long interval, final long offset_for_tz, final Aggregator downsampler) {
+            final long interval, 
+            final String dimension,
+            final TimeZone tz, 
+            final Aggregator downsampler) {
     this(tsdb, start_time, end_time, spans, rate, new RateOptions(false,
         Long.MAX_VALUE, RateOptions.DEFAULT_RESET_VALUE), aggregator, interval,
-        offset_for_tz, downsampler);
+        dimension, tz, downsampler);
   }
 
   /**
@@ -147,7 +154,7 @@ final class SpanGroup implements DataPoints {
             final Iterable<Span> spans,
             final boolean rate, final RateOptions rate_options,
             final Aggregator aggregator,
-            final long interval, long offset_for_tz, final Aggregator downsampler) {
+            final long interval, final String dimension, final TimeZone tz, final Aggregator downsampler) {
     annotations = new ArrayList<Annotation>();
     this.start_time = (start_time & Const.SECOND_MASK) == 0 ? start_time * 1000 : start_time;
     this.end_time = (end_time & Const.SECOND_MASK) == 0 ? end_time * 1000 : end_time;
@@ -161,7 +168,8 @@ final class SpanGroup implements DataPoints {
     this.aggregator = aggregator;
     this.downsampler = downsampler;
     this.sample_interval = interval;
-    this.offset_for_tz = offset_for_tz;
+    this.dimension = dimension;
+    this.tz = tz;
   }
 
   /**
@@ -384,7 +392,7 @@ final class SpanGroup implements DataPoints {
   public SeekableView iterator() {
     return AggregationIterator.create(spans, start_time, end_time, aggregator,
                                   aggregator.interpolationMethod(),
-                                  downsampler, sample_interval, offset_for_tz,
+                                  downsampler, sample_interval, dimension, tz,
                                   rate, rate_options);
   }
 

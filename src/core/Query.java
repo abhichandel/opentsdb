@@ -14,6 +14,7 @@ package net.opentsdb.core;
 
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 
 import org.hbase.async.HBaseException;
 
@@ -153,7 +154,7 @@ public interface Query {
    * @param downsampler Aggregation function to use to group data points
    * within an interval.
    */
-  void downsample(long interval, Aggregator downsampler, long offset_for_tz);
+  void downsample(long interval, Aggregator downsampler, final String dimension, final TimeZone tz);
   
   /**
    * Downsamples the results by specifying a fixed interval between points.

@@ -17,6 +17,7 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 
 import net.opentsdb.utils.DateTime;
 
@@ -77,9 +78,9 @@ public final class TSQuery {
   private boolean ms_resolution;
   
   /**
-   * offset from UTC for a timezone
+   * TimeZone for query
    */
-  private long offset_for_tz;
+  private TimeZone tz;
   
   /**
    * Default constructor necessary for POJO de/serialization
@@ -121,7 +122,7 @@ public final class TSQuery {
     }
     
     //if above checks are fine set timezone offset.
-    offset_for_tz = 60*60*1000 - DateTime.timezones.get(timezone).getOffset(Calendar.ZONE_OFFSET)%(60*60*1000);
+    tz = DateTime.timezones.get(timezone);
     
     // validate queries
     for (TSSubQuery sub : queries) {
@@ -145,11 +146,11 @@ public final class TSQuery {
       query.setStartTime(start_time);
       query.setEndTime(end_time);
       if (sub.downsampler() != null) {
-        query.downsample(sub.downsampleInterval(), sub.downsampler(), offset_for_tz);
+        query.downsample(sub.downsampleInterval(), sub.downsampler(), sub.getDimension(), tz);
       } else if (!ms_resolution) {
         // we *may* have multiple millisecond data points in the set so we have
         // to downsample. use the sub query's aggregator
-        query.downsample(1000, sub.aggregator(), offset_for_tz);
+        query.downsample(1000, sub.aggregator(), sub.getDimension(), tz);
       }
       if (sub.getTsuids() != null && !sub.getTsuids().isEmpty()) {
         if (sub.getRateOptions() != null) {
@@ -304,12 +305,12 @@ public final class TSQuery {
     this.timezone = timezone;
   }
 
-  public long getOffset_for_tz() {
-	return offset_for_tz;
+  public TimeZone getTz() {
+	return tz;
 }
 
-public void setOffset_for_tz(long offset_for_tz) {
-	this.offset_for_tz = offset_for_tz;
+public void setTz(TimeZone tz) {
+	this.tz = tz;
 }
 
 /** @param options a map of options to pass on to the serializer */

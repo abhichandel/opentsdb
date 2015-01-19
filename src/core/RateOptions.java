@@ -12,7 +12,6 @@
 // see <http://www.gnu.org/licenses/>.
 package net.opentsdb.core;
 
-import net.opentsdb.utils.DateTime;
 
 /**
  * Provides additional options that will be used when calculating rates. These
@@ -27,14 +26,20 @@ import net.opentsdb.utils.DateTime;
 public class RateOptions {
   public static final long DEFAULT_RESET_VALUE = 0;
 
+  public static final int MONOTONIC_INCREMEMNT_COUNTER = 0;
+  public static final int BIDIRECTIONAL_INCREMEMNT_COUNTER = 1;
+  public static final int BIDIRECTIONAL_DECREMENT_COUNTER = 2;
   /**
    * If true, then when calculating a rate of change assume that the metric
    * values are counters and thus non-zero, always increasing and wrap around at
    * some maximum
    */
   private boolean counter;
+  
+  
+  private int counterType;
 
-  /**
+/**
    * If calculating a rate of change over a metric that is a counter, then this
    * value specifies the maximum value the counter will obtain before it rolls
    * over. This value will default to Long.MAX_VALUE.
@@ -74,6 +79,12 @@ public class RateOptions {
     this.reset_value = reset_value;
   }
   
+  public RateOptions(final boolean counter, int counterType, final long counter_max,
+	      final long reset_value) {
+	  this(counter, counter_max, reset_value);
+	  this.counterType = counterType;
+ }
+  
   /** @return Whether or not the counter flag is set */
   public boolean isCounter() {
     return counter;
@@ -104,6 +115,14 @@ public class RateOptions {
     this.reset_value = reset_value;
   }
   
+  public int getCounterType() {
+	return counterType;
+  }
+  
+  public void setCounterType(int counterType) {
+	this.counterType = counterType;
+  }
+  
   /**
    * Generates a String version of the rate option instance in a format that 
    * can be utilized in a query.
@@ -128,24 +147,38 @@ public class RateOptions {
 		           "counter[,counter max value,reset value, interval], recieved: "
 		               + parts.length + " parts");
 		     }
-
-		     final boolean counter = "counter".equals(parts[0]);
-		     try {
-		       final long max = (parts.length >= 2 && parts[1].length() > 0 ? Long
-		           .parseLong(parts[1]) : Long.MAX_VALUE);
-		       try {
-		         final long reset = (parts.length >= 3 && parts[2].length() > 0 ? Long
-		             .parseLong(parts[2]) : RateOptions.DEFAULT_RESET_VALUE);
-		         return new RateOptions(counter, max, reset);
-		       } catch (NumberFormatException e) {
-		         throw new IllegalArgumentException(
-		             "Reset value of counter was not a number, received '" + parts[2]
-		                 + "'");
-		       }
-		     } catch (NumberFormatException e) {
-		       throw new IllegalArgumentException(
-		           "Max value of counter was not a number, received '" + parts[1] + "'");
+		     boolean counter = false;
+		     int counterType = MONOTONIC_INCREMEMNT_COUNTER;
+		     if("mono-inc-counter".equals(parts[0]) || "counter".equals(parts[0])){
+		    	 counter = true;
+		    	 counterType = MONOTONIC_INCREMEMNT_COUNTER;
+		     } else if("bi-inc-counter".equals(parts[0])){
+		    	 counter = true;
+		    	 counterType = BIDIRECTIONAL_INCREMEMNT_COUNTER;
+		     } else if("bi-dec-counter".equals(parts[0])){
+		    	 counter = true;
+		    	 counterType = BIDIRECTIONAL_DECREMENT_COUNTER;
 		     }
-	
+
+		     if(counterType == MONOTONIC_INCREMEMNT_COUNTER) {
+		    	 try {
+				       final long max = (parts.length >= 2 && parts[1].length() > 0 ? Long
+				           .parseLong(parts[1]) : Long.MAX_VALUE);
+				       try {
+				         final long reset = (parts.length >= 3 && parts[2].length() > 0 ? Long
+				             .parseLong(parts[2]) : RateOptions.DEFAULT_RESET_VALUE);
+				         return new RateOptions(counter, counterType, max, reset);
+				       } catch (NumberFormatException e) {
+				         throw new IllegalArgumentException(
+				             "Reset value of counter was not a number, received '" + parts[2]
+				                 + "'");
+				       }
+				     } catch (NumberFormatException e) {
+				       throw new IllegalArgumentException(
+				           "Max value of counter was not a number, received '" + parts[1] + "'");
+				     }
+		     } else {
+		    	 return new RateOptions(counter, counterType, 0, 0);
+		     }
   	}
 }
