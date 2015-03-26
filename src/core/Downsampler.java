@@ -66,13 +66,13 @@ public class Downsampler implements SeekableView, DataPoint {
 	long offset = tz.getOffset(Calendar.ZONE_OFFSET);
 	ValuesInInterval valuesInterval;
 	if(!options.isCounter()){
-		valuesInterval = new ValuesInInterval(source, 24*60*60*1000, offset);
+		valuesInterval = new ValuesInInterval(source, interval_ms, offset);
 	} else if(options.getCounterType() == RateOptions.BIDIRECTIONAL_DECREMENT_COUNTER) {
-		valuesInterval = new DecCounterValuesInInterval(source, 24*60*60*1000, offset);
+		valuesInterval = new DecCounterValuesInInterval(source, interval_ms, offset);
 	} else if(options.getCounterType() == RateOptions.BIDIRECTIONAL_INCREMEMNT_COUNTER) {
-		valuesInterval = new IncCounterValuesInInterval(source, 24*60*60*1000, offset);
+		valuesInterval = new IncCounterValuesInInterval(source, interval_ms, offset);
 	} else {
-		valuesInterval = new CounterValuesInInterval(source, 24*60*60*1000, offset, options.getCounterMax(), options.getResetValue());
+		valuesInterval = new CounterValuesInInterval(source, interval_ms, offset, options.getCounterMax(), options.getResetValue());
 	}
 	
 	switch (dimension.substring(dimension.length() - 1)) {
@@ -589,7 +589,7 @@ public class Downsampler implements SeekableView, DataPoint {
             difference = 0;
         }
         
-        return difference;
+        return difference*-1;
       }
       throw new NoSuchElementException("no more values in interval of "
           + timestamp_end_interval);

@@ -141,7 +141,7 @@ public class RateOptions {
   public static RateOptions parseRateOptions(String rateSpec) {
 	  String[] parts = Tags
 		         .splitString(rateSpec, ',');
-		     if (parts.length < 1 || parts.length > 4) {
+		     if (parts.length < 1 || parts.length > 3) {
 		       throw new IllegalArgumentException(
 		           "Incorrect number of values in rate options specification, must be " +
 		           "counter[,counter max value,reset value, interval], recieved: "

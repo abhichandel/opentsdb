@@ -236,7 +236,7 @@ final class AggregationIterator implements SeekableView, DataPoint,
         it = spans.get(i).downsampler(sample_interval_ms, downsampler, dimension, tz,rate_options);
       }
       if (rate) {
-        it = new RateSpan(it, rate_options);
+        it = new RateSpanDelta(it, rate_options);
       }
       iterators[i] = it;
     }
