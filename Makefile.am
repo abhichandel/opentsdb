@@ -45,10 +45,12 @@ tsdb_SRC := \
 	src/core/IncomingDataPoints.java	\
 	src/core/IllegalDataException.java	\
 	src/core/Internal.java	\
+	src/core/IValuesInterval.java	\
 	src/core/MutableDataPoint.java \
 	src/core/Query.java	\
 	src/core/RateOptions.java  \
 	src/core/RateSpan.java  \
+	src/core/RateSpanDelta.java  \
 	src/core/RowKey.java	\
 	src/core/RowSeq.java	\
 	src/core/SeekableView.java	\
@@ -262,7 +264,7 @@ package_dir := $(subst .,/,$(package))
 UNITTESTS := $(test_SRC:test/%.java=$(package_dir)/%.class)
 PLUGINTESTS := $(test_plugin_SRC:test/%.java=$(package_dir)/%.class)
 PLUGINSVCS := $(test_plugin_SVCS:%=-C $(srcdir)/test %)
-AM_JAVACFLAGS = -Xlint -source 6 -encoding utf-8
+AM_JAVACFLAGS = -Xlint -source 8 -encoding utf-8
 JVM_ARGS =
 classes := $(tsdb_SRC:src/%.java=$(package_dir)/%.class) \
         $(builddata_SRC:src/%.java=$(package_dir)/%.class)

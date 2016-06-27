@@ -189,8 +189,9 @@ public class DateTime {
       case 'h': multiplier = 3600; break;             // hours
       case 'd': multiplier = 3600 * 24; break;        // days
       case 'w': multiplier = 3600 * 24 * 7; break;    // weeks
-      case 'n': multiplier = 3600 * 24 * 30; break;   // month (average)
+      case 'n': multiplier = 3600 * 24 * 29; break;   // month (average)
       case 'y': multiplier = 3600 * 24 * 365; break;  // years (screw leap years)
+      case 'o': multiplier = 3600; break;  // years (screw leap years)
       default: throw new IllegalArgumentException("Invalid duration (suffix): " + duration);
     }
     multiplier *= 1000;

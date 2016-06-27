@@ -117,8 +117,14 @@ public class RateSpanDelta implements SeekableView {
   }
   
   private void moveToNextValue() {
-	  if(source.hasNext()) {
-		  next_data.reset(source.next());
+	  while(source.hasNext()) {
+		  DataPoint dp = source.next();
+		  if(dp.toDouble() < 0 || dp.toDouble() > options.getCounterMax()){
+			  continue;
+		  } else {
+			  next_data.reset(source.next());
+			  break;
+		  }
 	  }
   }
 
@@ -149,9 +155,10 @@ public class RateSpanDelta implements SeekableView {
             + " strictly greater than the previous one (" + t0 + "), but it's"
             + " not.  this=" + this);
       }
-      // TODO: for backwards compatibility we'll convert the ms to seconds
+   // TODO: for backwards compatibility we'll convert the ms to seconds
       // but in the future we should add a ratems flag that will calculate
       // the rate as is.
+      final double time_delta_secs = ((double)(t1 - t0) / 1000.0);
       double difference;
       if (prev_data.isInteger() && next_data.isInteger()) {
         // NOTE: Calculates in the long type to avoid precision loss
@@ -165,7 +172,14 @@ public class RateSpanDelta implements SeekableView {
       if(difference > 0) {
     	  difference = 0;
       }
-      next_rate.reset(prev_data.timestamp(), difference*-1);
+      // If the rate is greater than the reset value, return a 0
+      final double rate = difference / time_delta_secs;
+      if (options.getResetValue() > RateOptions.DEFAULT_RESET_VALUE
+          && rate > options.getResetValue()) {
+        next_rate.reset(prev_data.timestamp(), 0.0D);
+      } else {
+        next_rate.reset(prev_data.timestamp(), difference*-1);
+      }
     } else {
       // Invalidates the next rate with invalid timestamp.
       next_rate.reset(INVALID_TIMESTAMP, 0);
@@ -192,6 +206,7 @@ public class RateSpanDelta implements SeekableView {
       // TODO: for backwards compatibility we'll convert the ms to seconds
       // but in the future we should add a ratems flag that will calculate
       // the rate as is.
+      final double time_delta_secs = ((double)(t1 - t0) / 1000.0);
       double difference;
       if (prev_data.isInteger() && next_data.isInteger()) {
         // NOTE: Calculates in the long type to avoid precision loss
@@ -205,7 +220,15 @@ public class RateSpanDelta implements SeekableView {
       if(difference < 0) {
     	  difference = 0;
       }
-      next_rate.reset(prev_data.timestamp(), difference);
+      
+   // If the rate is greater than the reset value, return a 0
+      final double rate = difference / time_delta_secs;
+      if (options.getResetValue() > RateOptions.DEFAULT_RESET_VALUE
+          && rate > options.getResetValue()) {
+        next_rate.reset(prev_data.timestamp(), 0.0D);
+      } else {
+        next_rate.reset(prev_data.timestamp(), difference);
+      }
     } else {
       // Invalidates the next rate with invalid timestamp.
       next_rate.reset(INVALID_TIMESTAMP, 0);

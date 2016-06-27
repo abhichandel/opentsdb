@@ -66,6 +66,10 @@ public final class Aggregators {
   public static final Aggregator MIMMAX = new Max(
       Interpolation.MIN, "mimmax");
   
+  public static final Aggregator FIRST = new First(Interpolation.LERP, "first");
+  
+  public static final Aggregator COUNT = new Count(Interpolation.LERP, "count");
+  
   /** Maps an aggregator name to its instance. */
   private static final HashMap<String, Aggregator> aggregators;
 
@@ -79,6 +83,8 @@ public final class Aggregators {
     aggregators.put("zimsum", ZIMSUM);
     aggregators.put("mimmin", MIMMIN);
     aggregators.put("mimmax", MIMMAX);
+    aggregators.put("first", FIRST);
+    aggregators.put("count", COUNT);
   }
 
   private Aggregators() {
@@ -140,7 +146,75 @@ public final class Aggregators {
     }
     
   }
+  
+  private static final class Count implements Aggregator {
+	    private final Interpolation method;
+	    private final String name;
+	    
+	    public Count(final Interpolation method, final String name) {
+	      this.method = method;
+	      this.name = name;
+	    }
+	    
+	    public long runLong(final Longs values) {
+	      int n = 0;
+	      while (values.hasNextValue()) {
+	    	values.nextLongValue();
+	        n++;
+	      }
+	      return n;
+	    }
 
+	    public double runDouble(final Doubles values) {
+	      int n = 0;
+	      while (values.hasNextValue()) {
+	    	values.nextDoubleValue();
+	        n++;
+	      }
+	      return n;
+	    }
+
+	    public String toString() {
+	      return name;
+	    }
+	  
+	    public Interpolation interpolationMethod() {
+	      return method;
+	    }
+	   
+	  }
+  
+	private static final class First implements Aggregator {
+
+		private final Interpolation method;
+		private final String name;
+
+		public First(final Interpolation method, final String name) {
+			this.method = method;
+			this.name = name;
+		}
+
+		@Override
+		public long runLong(Longs values) {
+			return values.nextLongValue();
+		}
+
+		@Override
+		public double runDouble(Doubles values) {
+			return values.nextDoubleValue();
+		}
+
+		public String toString() {
+			return name;
+		}
+		
+		@Override
+		public Interpolation interpolationMethod() {
+			return null;
+		}
+
+	}
+  
   private static final class Min implements Aggregator {
     private final Interpolation method;
     private final String name;

@@ -13,5 +13,7 @@ interface IValuesInterval extends Aggregator.Doubles {
 	public long getIntervalTimestamp();
 	
 	public long currentTimeSatamp() ;
+	
+	public void setIntervalInMs(long interval);
 
 }
