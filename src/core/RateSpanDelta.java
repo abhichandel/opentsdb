@@ -283,7 +283,12 @@ public class RateSpanDelta implements SeekableView {
         final double rate = difference / time_delta_secs;
         if (options.getResetValue() > RateOptions.DEFAULT_RESET_VALUE
             && rate > options.getResetValue()) {
-          next_rate.reset(prev_data.timestamp(), 0.0D);
+        	if(options.getCounterType() == RateOptions.MONOTONIC_INCREMEMNT_TIME_COUNTER) {
+        		next_rate.reset(prev_data.timestamp(), time_delta_secs);
+        	} else {
+        		next_rate.reset(prev_data.timestamp(), 0.0D);
+        	}
+          
         } else {
           next_rate.reset(prev_data.timestamp(), difference);
         }

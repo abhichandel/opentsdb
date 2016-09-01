@@ -24,11 +24,12 @@ package net.opentsdb.core;
  * @since 2.0
  */
 public class RateOptions {
-  public static final long DEFAULT_RESET_VALUE = 0;
+  public static final double DEFAULT_RESET_VALUE = 0d;
 
   public static final int MONOTONIC_INCREMEMNT_COUNTER = 0;
   public static final int BIDIRECTIONAL_INCREMEMNT_COUNTER = 1;
   public static final int BIDIRECTIONAL_DECREMENT_COUNTER = 2;
+  public static final int MONOTONIC_INCREMEMNT_TIME_COUNTER = 3;
   /**
    * If true, then when calculating a rate of change assume that the metric
    * values are counters and thus non-zero, always increasing and wrap around at
@@ -51,7 +52,7 @@ public class RateOptions {
    * a data anomaly, such as a system reset of the counter, and the rate will be
    * returned as a zero value for a given data point.
    */
-  private long reset_value;
+  private double reset_value;
 
   /**
    * Ctor
@@ -73,14 +74,14 @@ public class RateOptions {
    * counter is assumed to have been reset
    */
   public RateOptions(final boolean counter, final long counter_max,
-      final long reset_value) {
+      final double reset_value) {
     this.counter = counter;
     this.counter_max = counter_max;
     this.reset_value = reset_value;
   }
   
   public RateOptions(final boolean counter, int counterType, final long counter_max,
-	      final long reset_value) {
+	      final double reset_value) {
 	  this(counter, counter_max, reset_value);
 	  this.counterType = counterType;
  }
@@ -96,7 +97,7 @@ public class RateOptions {
   }
 
   /** @return The optional reset value for anomaly suppression */
-  public long getResetValue() {
+  public double getResetValue() {
     return reset_value;
   }
 
@@ -158,15 +159,18 @@ public class RateOptions {
 		     } else if("bi-dec-counter".equals(parts[0])){
 		    	 counter = true;
 		    	 counterType = BIDIRECTIONAL_DECREMENT_COUNTER;
-		     }
+		     } else if("mono-inc-time-counter".equals(parts[0])){
+		    	 counter = true;
+		    	 counterType = MONOTONIC_INCREMEMNT_TIME_COUNTER;
+		     } 
 
-		     if(counterType == MONOTONIC_INCREMEMNT_COUNTER) {
+		     if(counterType == MONOTONIC_INCREMEMNT_COUNTER || counterType == MONOTONIC_INCREMEMNT_TIME_COUNTER) {
 		    	 try {
 				       final long max = (parts.length >= 2 && parts[1].length() > 0 ? Long
 				           .parseLong(parts[1]) : Long.MAX_VALUE);
 				       try {
-				         final long reset = (parts.length >= 3 && parts[2].length() > 0 ? Long
-				             .parseLong(parts[2]) : RateOptions.DEFAULT_RESET_VALUE);
+				         final double reset = (parts.length >= 3 && parts[2].length() > 0 ? Double
+				             .parseDouble(parts[2]) : RateOptions.DEFAULT_RESET_VALUE);
 				         return new RateOptions(counter, counterType, max, reset);
 				       } catch (NumberFormatException e) {
 				         throw new IllegalArgumentException(
