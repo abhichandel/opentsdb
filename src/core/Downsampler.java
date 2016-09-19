@@ -1059,11 +1059,14 @@ public class Downsampler implements SeekableView, DataPoint {
         prev_dp.reset(next_dp);
         next_dp = source.next();
       } else {
+    	  if(next_dp != null) {
+    		  prev_dp.reset(next_dp);
+    	  }
         has_next_value_from_source = false;
       }
-      if(!source.hasNext()){
-      	has_next_value_from_source = false;
-      }
+//      if(!source.hasNext()){
+//      	has_next_value_from_source = false;
+//      }
     }
 
     public long currentTimeSatamp() {
@@ -1147,7 +1150,7 @@ public class Downsampler implements SeekableView, DataPoint {
       if (hasNextValue()) {
     	MutableDataPoint prev_prev_data = new MutableDataPoint();  
     	prev_prev_data.reset(prev_dp);
-          moveToNextValue();
+        moveToNextValue();
         final long t0 = prev_prev_data.timestamp();
         final long t1 = prev_dp.timestamp();
         if (t1 <= t0) {
@@ -1276,11 +1279,14 @@ public class Downsampler implements SeekableView, DataPoint {
         prev_dp.reset(next_dp);
         next_dp = source.next();
       } else {
+    	  if(next_dp != null) {
+    		  prev_dp.reset(next_dp);
+    	  }
         has_next_value_from_source = false;
       }
-      if(!source.hasNext()){
-      	has_next_value_from_source = false;
-      }
+//      if(!source.hasNext()){
+//      	has_next_value_from_source = false;
+//      }
     }
 
     public long currentTimeSatamp() {
