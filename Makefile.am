@@ -56,6 +56,7 @@ tsdb_SRC := \
 	src/core/SeekableView.java	\
 	src/core/Span.java	\
 	src/core/SpanGroup.java	\
+	src/core/TimedShift.java \
 	src/core/TSDB.java	\
 	src/core/Tags.java	\
 	src/core/TsdbQuery.java	\
