@@ -11,7 +11,6 @@
 // of the GNU Lesser General Public License along with this program.  If not,
 // see <http://www.gnu.org/licenses/>.
 package net.opentsdb.core;
-
 import java.util.Calendar;
 import java.util.NoSuchElementException;
 import java.util.TimeZone;
@@ -45,6 +44,15 @@ public class Downsampler implements SeekableView, DataPoint {
 	    this.downsampler = downsampler;
   }
   
+  public static void main(String[] args) {
+	  String dimension = "1h[09:00-02:00]";
+	  int indexOfSqrBracket = dimension.indexOf("[");
+	  String filterPart = dimension.substring(indexOfSqrBracket + 1, dimension.length() - 1);
+	  String dimPart = dimension.substring(0,indexOfSqrBracket);
+	  System.err.println(filterPart);
+	  System.out.println(dimPart);
+  }
+  
   /**
    * Ctor.
    * @param source The iterator to access the underlying data.
@@ -64,7 +72,30 @@ public class Downsampler implements SeekableView, DataPoint {
 //              case 'w': multiplier = 3600 * 24 * 7; break;    // weeks
 //	int offset = 60*60*1000 - tz.getOffset(Calendar.ZONE_OFFSET)%(60*60*1000);;
 	long offset = tz.getOffset(Calendar.ZONE_OFFSET);
-	final String timeDim = dimension.substring(dimension.length() - 1);
+	String timeDim = "";
+	TimedShift[] shiftFilter = new TimedShift[]{};
+	if(dimension != null && dimension.length() > 0) {
+		if(dimension.contains("[")) {
+			//filter is present.
+			int indexOfSqrBracket = dimension.indexOf("[");
+			String filterPart = dimension.substring(indexOfSqrBracket + 1, dimension.length() - 1);
+			String dimPart = dimension.substring(0,indexOfSqrBracket);
+			timeDim = dimPart.substring(dimPart.length() - 1);
+			String shifts[] = filterPart.split(",");
+			shiftFilter = new TimedShift[shifts.length];
+			for (int i = 0; i < shifts.length; i++) {
+				String shiftTime[] = shifts[i].split("-");
+				shiftFilter[i] = new TimedShift(String.valueOf(i), shiftTime[0], shiftTime[1]);
+			}
+		} else {
+			timeDim = dimension.substring(dimension.length() - 1);
+		}
+	}
+	
+	if("s".equalsIgnoreCase(timeDim)){
+		offset = 0;
+	}
+	
 	IValuesInterval valuesInterval;
 	if(!options.isCounter()){
 		valuesInterval = new ValuesInInterval(source, interval_ms, offset);
@@ -89,6 +120,9 @@ public class Downsampler implements SeekableView, DataPoint {
 		break;
 	case "d":
 		this.values_in_interval = valuesInterval;
+		break;
+	case "s":
+		this.values_in_interval = new ShiftInterval(source, valuesInterval,tz ,downsampler, shiftFilter);
 		break;
 	case "o":
 		if(!options.isCounter()) {
@@ -372,8 +406,167 @@ public class Downsampler implements SeekableView, DataPoint {
 		// TODO Auto-generated method stub
 		
 	}
+
+	@Override
+	public void setEndIntervalInMs(long interval) {
+		// TODO Auto-generated method stub
+		
+	}
   }
   
+  
+  private static class ShiftInterval implements IValuesInterval {
+		
+		protected final IValuesInterval values_in_interval;
+		protected long timestamp_end_interval = Long.MIN_VALUE;
+		protected final Aggregator downsampler;
+		/** True if it is initialized for iterating intervals. */
+		protected boolean initialized = false;
+		protected final TimeZone tz;
+		private final TimedShift[] shifts;
+		private int currShiftIndex;
+		private final SeekableView source;
+		
+		public ShiftInterval(SeekableView source, final IValuesInterval values_in_interval, final TimeZone tz, final Aggregator downsampler, TimedShift[] shifts) {
+			this.values_in_interval = values_in_interval; 
+			this.downsampler = downsampler;
+			this.tz = tz;
+			this.shifts = shifts;
+			this.source = source;
+		}
+
+		/** Initializes to iterate intervals. */
+	    private void initializeIfNotDone() {
+	      // NOTE: Delay initialization is required to not access any data point
+	      // from the source until a user requests it explicitly to avoid the severe
+	      // performance penalty by accessing the unnecessary first data of a span.
+	      if (!initialized) {
+	        initialized = true;
+//	        moveToNextValue();
+	        resetEndOfInterval();
+	      }
+	    }
+	    
+	    /**
+	     * Resets the current interval with the interval of the timestamp of
+	     * the next value read from source. It is the first value of the next
+	     * interval. */
+	    protected void resetEndOfInterval() {
+	      if (values_in_interval.hasNextValue()) {
+	    	long currTime = values_in_interval.currentTimeSatamp();
+	    	  
+	    	  //TODO: set timezone
+	    	Calendar c = Calendar.getInstance(tz);
+			c.setTimeInMillis(currTime);
+			int hour = c.get(Calendar.HOUR_OF_DAY);
+			int min = c.get(Calendar.MINUTE);
+			int sec = c.get(Calendar.SECOND);
+			int timeInSecForDay = hour*60*60 + min*60 + sec;
+			currShiftIndex =  getShiftIndex(shifts, timeInSecForDay);
+			timestamp_end_interval = shifts[currShiftIndex].getShiftEndFor(currTime, timeInSecForDay);
+			values_in_interval.setEndIntervalInMs(timestamp_end_interval);
+	      }
+	    }
+	    
+	    /**
+		 * Start time is inclusive and end time is exclusive.
+		 * @param timeInSec
+		 * @return true if time lies within start and end date
+		 */
+		private int getShiftIndex(TimedShift[] shifts, int timeInSec){
+			for (int i = 0; i < shifts.length; i++) {
+				if(shifts[i].contains(timeInSec)){
+					return i;
+				}
+			}
+			return -1;
+		}
+	    
+	    /**
+	     * Resets the current interval with the interval of the timestamp of
+	     * the next value read from source. It is the first value of the next
+	     * interval. */
+	    protected void resetIntervalInMS() {
+	      if (values_in_interval.hasNextValue()) {
+	    	values_in_interval.setIntervalInMs(shifts[currShiftIndex].getShiftSpan());
+	      }
+	    }
+
+	    /** Moves to the next available interval. */
+	    public void moveToNextInterval() {
+	      initializeIfNotDone();
+	      resetEndOfInterval();
+	      resetIntervalInMS();
+	    }
+
+		@Override
+		public boolean hasNextValue() {
+			initializeIfNotDone();
+			return values_in_interval.hasNextValue() && values_in_interval.currentTimeSatamp() < timestamp_end_interval;
+		}
+		
+	    /** Returns the representative timestamp of the current interval. */
+	    public long getIntervalTimestamp() {
+	      return timestamp_end_interval - shifts[currShiftIndex].getShiftSpan();
+	    }
+	    
+	    /** Advances the interval iterator to the given timestamp. */
+	    public void seekInterval(long timestamp) {
+	      // To make sure that the interval of the given timestamp is fully filled,
+	      // rounds up the seeking timestamp to the smallest timestamp that is
+	      // a multiple of the interval and is greater than or equal to the given
+	      // timestamp..
+	      Calendar c = Calendar.getInstance(tz);
+			c.setTimeInMillis(timestamp);
+			int hour = c.get(Calendar.HOUR_OF_DAY);
+			int min = c.get(Calendar.MINUTE);
+			int sec = c.get(Calendar.SECOND);
+			int timeInSecForDay = hour*60*60 + min*60 + sec;
+			int shiftIndex = getShiftIndex(shifts, timeInSecForDay);
+			if(shifts[shiftIndex].getShiftStartFor(timestamp, timeInSecForDay) != timestamp ){
+				//Move to next shift as timestamp is sought for in middle of shift.
+				if(shiftIndex == shifts.length - 1) {
+					shiftIndex = 0;
+					values_in_interval.setIntervalInMs(shifts[shiftIndex].getShiftSpan());
+					source.seek(shifts[shiftIndex].getShiftStartFor(c.getTimeInMillis(), timeInSecForDay) + 24*60*60*1000l);
+				} else {
+					shiftIndex++;
+					values_in_interval.setIntervalInMs(shifts[shiftIndex].getShiftSpan());
+					source.seek(shifts[shiftIndex].getShiftStartFor(c.getTimeInMillis(), timeInSecForDay));
+				}
+			}
+	      initialized = false;
+	    }
+
+		@Override
+		public double nextDoubleValue() {
+			if (hasNextValue()) {
+				double value = downsampler.runDouble(values_in_interval);
+				values_in_interval.moveToNextInterval();
+		        return value;
+		      }
+		      throw new NoSuchElementException("no more values in interval of "
+		          + timestamp_end_interval);
+		}
+
+		@Override
+		public long currentTimeSatamp() {
+			// TODO Auto-generated method stub
+			return 0;
+		}
+
+		@Override
+		public void setIntervalInMs(long interval) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void setEndIntervalInMs(long interval) {
+			// TODO Auto-generated method stub
+			
+		}
+	  }
   
   /** Iterates source values for an interval. */
   private static class ValuesInInterval implements Aggregator.Doubles, IValuesInterval {
@@ -519,6 +712,12 @@ public class Downsampler implements SeekableView, DataPoint {
 	@Override
 	public void setIntervalInMs(long interval) {
 		interval_ms =interval;
+	}
+
+	@Override
+	public void setEndIntervalInMs(long interval) {
+		this.timestamp_end_interval = interval;
+		
 	}
   }
   
@@ -709,24 +908,24 @@ public class Downsampler implements SeekableView, DataPoint {
               difference = maxValue - prev_data.toDouble() +
                   next_dp.toDouble();
             }
-         // If the rate is greater than the reset value, return a 0
-            final double time_delta_secs = ((double)(t1 - t0) / 1000.0);
-            final double rate = difference / time_delta_secs;
-            if(resetRate != 0 && rate > resetRate){
-            	if(counterType == RateOptions.MONOTONIC_INCREMEMNT_TIME_COUNTER) {
-            		difference = time_delta_secs;
-            	} else {
-            		difference = 0;
-            	}
-            	
-//            	if (prev_data.isInteger() && next_dp.isInteger()) {
-//                    // NOTE: Calculates in the long type to avoid precision loss
-//                    // while converting long values to double values if both values are long.
-//                    difference = next_dp.longValue();
-//                  } else {
-//                    difference = next_dp.toDouble();
-//                  }
-            }
+        }
+     // If the rate is greater than the reset value, return a 0
+        final double time_delta_secs = ((double)(t1 - t0) / 1000.0);
+        final double rate = difference / time_delta_secs;
+        if(resetRate != 0 && rate > resetRate){
+        	if(counterType == RateOptions.MONOTONIC_INCREMEMNT_TIME_COUNTER) {
+        		difference = time_delta_secs;
+        	} else {
+        		difference = 0;
+        	}
+        	
+//        	if (prev_data.isInteger() && next_dp.isInteger()) {
+//                // NOTE: Calculates in the long type to avoid precision loss
+//                // while converting long values to double values if both values are long.
+//                difference = next_dp.longValue();
+//              } else {
+//                difference = next_dp.toDouble();
+//              }
         }
         return difference;
       }
@@ -906,6 +1105,12 @@ public class Downsampler implements SeekableView, DataPoint {
 	@Override
 	public void setIntervalInMs(long interval) {
 		interval_ms =interval;
+	}
+
+	@Override
+	public void setEndIntervalInMs(long interval) {
+		// TODO Auto-generated method stub
+		
 	}
   }
   
@@ -1179,16 +1384,16 @@ public class Downsampler implements SeekableView, DataPoint {
               difference = maxValue - prev_prev_data.toDouble() +
             		  prev_dp.toDouble();
             }
-         // If the rate is greater than the reset value, return a 0
-            final double time_delta_secs = ((double)(t1 - t0) / 1000.0);
-            final double rate = difference / time_delta_secs;
-            if(resetRate != 0 && rate > resetRate){
-            	if(counterType == RateOptions.MONOTONIC_INCREMEMNT_TIME_COUNTER) {
-            		difference = time_delta_secs;
-            	} else {
-            		difference = 0;
-            	}
-            }
+        }
+     // If the rate is greater than the reset value, return a 0
+        final double time_delta_secs = ((double)(t1 - t0) / 1000.0);
+        final double rate = difference / time_delta_secs;
+        if(resetRate != 0 && rate > resetRate){
+        	if(counterType == RateOptions.MONOTONIC_INCREMEMNT_TIME_COUNTER) {
+        		difference = time_delta_secs;
+        	} else {
+        		difference = 0;
+        	}
         }
         return difference;
       }
@@ -1212,6 +1417,12 @@ public class Downsampler implements SeekableView, DataPoint {
 
 	@Override
 	public void setIntervalInMs(long interval) {
+	}
+
+	@Override
+	public void setEndIntervalInMs(long interval) {
+		// TODO Auto-generated method stub
+		
 	}
   }
   
@@ -1406,6 +1617,12 @@ public class Downsampler implements SeekableView, DataPoint {
 
 	@Override
 	public void setIntervalInMs(long interval) {
+	}
+
+	@Override
+	public void setEndIntervalInMs(long interval) {
+		// TODO Auto-generated method stub
+		
 	}
   }
   

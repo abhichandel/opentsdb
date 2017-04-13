@@ -269,6 +269,7 @@ public class RateSpanDelta implements SeekableView {
       }
       
       if (options.isCounter() && difference < 0) {
+    	
         if (prev_data.isInteger() && next_data.isInteger()) {
           // NOTE: Calculates in the long type to avoid precision loss
           // while converting long values to double values if both values are long.
@@ -293,7 +294,19 @@ public class RateSpanDelta implements SeekableView {
           next_rate.reset(prev_data.timestamp(), difference);
         }
       } else {
-        next_rate.reset(prev_data.timestamp(), difference);
+    	// If the rate is greater than the reset value, return a 0
+          final double rate = difference / time_delta_secs;
+          if (options.getResetValue() > RateOptions.DEFAULT_RESET_VALUE
+              && rate > options.getResetValue()) {
+          	if(options.getCounterType() == RateOptions.MONOTONIC_INCREMEMNT_TIME_COUNTER) {
+          		next_rate.reset(prev_data.timestamp(), time_delta_secs);
+          	} else {
+          		next_rate.reset(prev_data.timestamp(), 0.0D);
+          	}
+            
+          } else {
+            next_rate.reset(prev_data.timestamp(), difference);
+          }
       }
     } else {
       // Invalidates the next rate with invalid timestamp.

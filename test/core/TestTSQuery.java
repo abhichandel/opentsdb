@@ -18,6 +18,8 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 
+import net.opentsdb.utils.JSON;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.powermock.api.mockito.PowerMockito;
@@ -110,5 +112,13 @@ public final class TestTSQuery {
     subs.add(TestTSSubQuery.getMetricForValidate());
     query.setQueries(subs);
     return query;
+  }
+  
+  @Test
+  public void testCreateQueryFromJson() {
+	  String json= "{\"start\":\"1486021553074\",\"end\":\"1486129553074\",\"msResolution\":true,\"timezone\":\"IST\",\"queries\":[{\"metric\":\"57.eng.pressure\",\"aggregator\":\"avg\",\"downsample\":\"1s[02:00-09:00,09:00-02:00]-avg\",\"tags\":{\"deviceId\":\"299\"}}]}";
+	  TSQuery query = JSON.parseToObject(json, TSQuery.class);
+	  query.validateAndSetQuery();
+	  System.out.println(query);
   }
 }

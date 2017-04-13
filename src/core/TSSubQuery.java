@@ -152,7 +152,13 @@ public final class TSSubQuery {
     
     // parse the downsampler if we have one
     if (downsample != null && !downsample.isEmpty()) {
-      final int dash = downsample.indexOf('-', 1); // 1st char can't be
+    	final int dash;
+    	if(downsample.contains("[")){
+    		dash = downsample.indexOf("]-", 1) + 1; // 1st char can't be
+    	} else {
+    		dash = downsample.indexOf('-', 1); // 1st char can't be
+    	}
+      
                                                         // `-'.
       if (dash < 0) {
         throw new IllegalArgumentException("Invalid downsampling specifier '" 
@@ -172,7 +178,14 @@ public final class TSSubQuery {
             + downsample.substring(dash + 1));
       }
       dimension = downsample.substring(0, dash); 
-      downsample_interval = DateTime.parseDuration(dimension);
+      if(dimension.contains("[")) {
+    	  int indexOfSqrBracket = dimension.indexOf("[");
+  		  String dimPart = dimension.substring(0,indexOfSqrBracket);
+    	  downsample_interval = DateTime.parseDuration(dimPart);
+      } else {
+    	  downsample_interval = DateTime.parseDuration(dimension);
+      }
+      
     }
   }
 

@@ -46,6 +46,10 @@ public final class Aggregators {
   /** Aggregator that returns the average value of the data point. */
   public static final Aggregator AVG = new Avg(
       Interpolation.LERP, "avg");
+  
+  /** Aggregator that returns the average value of the data point. */
+  public static final Aggregator AVGABS = new AvgABS(
+      Interpolation.LERP, "avgabs");
 
   /** Aggregator that returns the Standard Deviation of the data points. */
   public static final Aggregator DEV = new StdDev(
@@ -67,6 +71,7 @@ public final class Aggregators {
       Interpolation.MIN, "mimmax");
   
   public static final Aggregator FIRST = new First(Interpolation.LERP, "first");
+  public static final Aggregator LAST = new Last(Interpolation.LERP, "last");
   
   public static final Aggregator COUNT = new Count(Interpolation.LERP, "count");
   
@@ -84,7 +89,9 @@ public final class Aggregators {
     aggregators.put("mimmin", MIMMIN);
     aggregators.put("mimmax", MIMMAX);
     aggregators.put("first", FIRST);
+    aggregators.put("last", LAST);
     aggregators.put("count", COUNT);
+    aggregators.put("avgabs", AVGABS);
   }
 
   private Aggregators() {
@@ -196,12 +203,59 @@ public final class Aggregators {
 
 		@Override
 		public long runLong(Longs values) {
-			return values.nextLongValue();
+			long val = values.nextLongValue();
+		      while (values.hasNextValue()) {
+		        values.nextLongValue();
+		      }
+		      return val;
 		}
 
 		@Override
 		public double runDouble(Doubles values) {
-			return values.nextDoubleValue();
+			double val = values.nextDoubleValue();
+		      while (values.hasNextValue()) {
+		        values.nextDoubleValue();
+		      }
+		    return val;
+		}
+
+		public String toString() {
+			return name;
+		}
+		
+		@Override
+		public Interpolation interpolationMethod() {
+			return null;
+		}
+
+	}
+	
+	private static final class Last implements Aggregator {
+
+		private final Interpolation method;
+		private final String name;
+
+		public Last(final Interpolation method, final String name) {
+			this.method = method;
+			this.name = name;
+		}
+
+		@Override
+		public long runLong(Longs values) {
+			 long val = values.nextLongValue();
+		      while (values.hasNextValue()) {
+		        val = values.nextLongValue();
+		      }
+		      return val;
+		}
+
+		@Override
+		public double runDouble(Doubles values) {
+			double val = values.nextDoubleValue();
+		      while (values.hasNextValue()) {
+		        val = values.nextDoubleValue();
+		      }
+		      return val;
 		}
 
 		public String toString() {
@@ -335,6 +389,45 @@ public final class Aggregators {
     }
    
   }
+  
+  private static final class AvgABS implements Aggregator {
+	    private final Interpolation method;
+	    private final String name;
+	    
+	    public AvgABS(final Interpolation method, final String name) {
+	      this.method = method;
+	      this.name = name;
+	    }
+	    
+	    public long runLong(final Longs values) {
+	      long result = Math.abs(values.nextLongValue());
+	      int n = 1;
+	      while (values.hasNextValue()) {
+	        result += Math.abs(values.nextLongValue());
+	        n++;
+	      }
+	      return result / n;
+	    }
+
+	    public double runDouble(final Doubles values) {
+	      double result = Math.abs(values.nextDoubleValue());
+	      int n = 1;
+	      while (values.hasNextValue()) {
+	        result += Math.abs(values.nextDoubleValue());
+	        n++;
+	      }
+	      return result / n;
+	    }
+
+	    public String toString() {
+	      return name;
+	    }
+	  
+	    public Interpolation interpolationMethod() {
+	      return method;
+	    }
+	   
+	  }
 
   /**
    * Standard Deviation aggregator.
