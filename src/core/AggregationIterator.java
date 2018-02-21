@@ -310,10 +310,14 @@ final class AggregationIterator implements SeekableView, DataPoint,
         // instead of interpolating for aggregation when a data point is
         // missing for the current timestamp.
         // TODO: Use the next rate that contains the current timestamp.
-        if (it.hasNext()) {
-          moveToNext(i);
-        } else {
-          endReached(i);
+//        if (it.hasNext()) {
+//          moveToNext(i);
+//        } else {
+//          endReached(i);
+//        }
+        
+        if (!it.hasNext()) {
+        	endReached(i);
         }
       }
     }

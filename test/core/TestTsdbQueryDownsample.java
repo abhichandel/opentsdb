@@ -83,7 +83,8 @@ public class TestTsdbQueryDownsample {
     tsdb = new TSDB(config);
     query = new TsdbQuery(tsdb);
 
-    String json= "{\"start\":\"1356998400000\",\"end\":\"1358078400000\",\"msResolution\":true,\"timezone\":\"IST\",\"queries\":[{\"metric\":\"sys.cpu.user\",\"aggregator\":\"avg\",\"downsample\":\"1s[2:0-9:0,9:0-2:0]-sum\",\"tags\":{\"host\":\"web01\"}}]}";
+//    String json= "{\"start\":\"1356998400000\",\"end\":\"1358078400000\",\"msResolution\":true,\"timezone\":\"IST\",\"queries\":[{\"metric\":\"sys.cpu.user\",\"aggregator\":\"avg\",\"downsample\":\"1s[2:0-9:0,9:0-2:0]-sum\",\"tags\":{\"host\":\"web01\"}}]}";
+    String json= "{\"start\":\"1494181800000\",\"end\":\"1494320842050\",\"msResolution\":true,\"timezone\":\"IST\",\"queries\":[{\"metric\":\"sys.cpu.user\",\"aggregator\":\"sum\",\"rate\":true,\"rateOptions\":{\"counter\":true,\"counterMax\":99999000,\"resetValue\":100.0,\"counterType\":0},\"tags\":{\"host\":\"web01\"}}]}";
 	query1 = JSON.parseToObject(json, TSQuery.class);
 	query1.validateAndSetQuery();
 	
@@ -434,6 +435,45 @@ public class TestTsdbQueryDownsample {
     assertEquals(151, dps[0].size());
   }
 
+  @Test
+  public void runFloatSingleTSRateMs() throws Exception {
+	storeFloatTimeSeriesMsForEnergy();
+	 
+//	  query.validateAndSetQuery();
+//	  System.out.println(query);
+//    HashMap<String, String> tags = new HashMap<String, String>(1);
+//    tags.put("host", "web01");
+//    query.setStartTime(1356998400000l);
+//    query.setEndTime(1358078400000l);
+//    query.downsample(1000, Aggregators.SUM,"1s[02:00-09:00,09:00-02:00]", TimeZone.getTimeZone("IST"));
+//    query.setTimeSeries("sys.cpu.user", tags, Aggregators.SUM, false);
+	Query[] queries = query1.buildQueries(tsdb);
+	Query query2 = queries[0];
+    final DataPoints[] dps = query2.run();
+    assertNotNull(dps);
+    assertEquals("sys.cpu.user", dps[0].metricName());
+    assertTrue(dps[0].getAggregatedTags().isEmpty());
+    assertNull(dps[0].getAnnotations());
+    assertEquals("web01", dps[0].getTags().get("host"));
+
+    // Timeseries in intervals: (1.25), (1.5, 1.75), (2, 2.25), ...
+    // (75.5, 75.75), (76).
+    // After downsampling: 1.25, 1.625, 2.125, ... 75.625, 76
+    int i = 0;
+    for (DataPoint dp : dps[0]) {
+    	System.out.println(dp.timestamp() + "," + dp.doubleValue());
+    }
+//    long[] expectedTimestamps = new long[]{1357011000000l,1357072200000l,1357097400000l,1357158600000l,1357183800000l,1357245000000l,1357270200000l,1357331400000l,1357356600000l,1357417800000l,1357443000000l,1357504200000l,1357529400000l,1357590600000l};
+//    double[] expectedValues = new double[]{10d,9d,20d,15d,30d,21d,40d,27d,50d,33d,60d,39d,70d, 29.75d};
+//    for (DataPoint dp : dps[0]) {
+//    	assertEquals("wrong value at index" + i,expectedValues[i], dp.doubleValue(), 0.00001);
+//    	assertEquals("wrong timestamp at index" + i, expectedTimestamps[i], dp.timestamp());
+//    	++i;
+//    }
+    // Out of 300 values, the first and the last intervals have one value each,
+    // and the 149 intervals in the middle have two values for each.
+//    assertEquals(151, dps[0].size());
+  }
   
   @Test
   public void runFloatSingleTSDownsampleShiftMs() throws Exception {
@@ -667,6 +707,31 @@ public class TestTsdbQueryDownsample {
       tsdb.addPoint("sys.cpu.nice", timestamp, i, tags).joinUninterruptibly();
     }
   }
+  
+  private void storeFloatTimeSeriesMsForEnergy() throws Exception {
+	    setQueryStorage();
+	    // dump a bunch of rows of two metrics so that we can test filtering out
+	    // on the metric
+	    HashMap<String, String> tags = new HashMap<String, String>(1);
+	    tags.put("host", "web01");
+	    
+	      tsdb.addPoint("sys.cpu.user", 1493975428000L, 736.3599853515625, tags).joinUninterruptibly();
+	      tsdb.addPoint("sys.cpu.user", 1493975731000L, 740.8499755859375, tags).joinUninterruptibly();
+	      tsdb.addPoint("sys.cpu.user", 1493976031000L, 745.0599975585938, tags).joinUninterruptibly();
+	      tsdb.addPoint("sys.cpu.user", 1493976331000L, 749.0999755859375, tags).joinUninterruptibly();
+	      tsdb.addPoint("sys.cpu.user", 1493976633000L, 753.2999877929688, tags).joinUninterruptibly();
+	      tsdb.addPoint("sys.cpu.user", 1494052262000L, 756.77001953125, tags).joinUninterruptibly();
+	      tsdb.addPoint("sys.cpu.user", 1494052561000L, 759.719970703125, tags).joinUninterruptibly();
+	      tsdb.addPoint("sys.cpu.user", 1494052862000L, 762.4600219726562, tags).joinUninterruptibly();
+	      tsdb.addPoint("sys.cpu.user", 1494053161000L, 765.1699829101562, tags).joinUninterruptibly();
+	      tsdb.addPoint("sys.cpu.user", 1494053461000L, 767.8200073242188, tags).joinUninterruptibly();
+	      tsdb.addPoint("sys.cpu.user", 1494238038000L, 771.8099975585938, tags).joinUninterruptibly();
+	      tsdb.addPoint("sys.cpu.user", 1494238340000L, 775.7100219726562, tags).joinUninterruptibly();
+	      tsdb.addPoint("sys.cpu.user", 1494238639000L, 779.489990234375, tags).joinUninterruptibly();
+	      tsdb.addPoint("sys.cpu.user", 1494238940000L, 783.0700073242188, tags).joinUninterruptibly();
+	    
+  }
+  
   
   private void storeFloatTimeSeriesMsForShift() throws Exception {
 	    setQueryStorage();

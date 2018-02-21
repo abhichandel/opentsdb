@@ -50,6 +50,18 @@ public final class Aggregators {
   /** Aggregator that returns the average value of the data point. */
   public static final Aggregator AVGABS = new AvgABS(
       Interpolation.LERP, "avgabs");
+  
+  /** Aggregator that returns the average value of the data point. */
+  public static final Aggregator MINABS = new MinABS(
+      Interpolation.LERP, "minabs");
+  
+  /** Aggregator that returns the average value of the data point. */
+  public static final Aggregator MAXABS = new MaxABS(
+      Interpolation.LERP, "maxabs");
+  
+  /** Aggregator that returns the average value of the data point. */
+  public static final Aggregator SUMABS = new SumABS(
+      Interpolation.LERP, "sumabs");
 
   /** Aggregator that returns the Standard Deviation of the data points. */
   public static final Aggregator DEV = new StdDev(
@@ -92,6 +104,9 @@ public final class Aggregators {
     aggregators.put("last", LAST);
     aggregators.put("count", COUNT);
     aggregators.put("avgabs", AVGABS);
+    aggregators.put("minabs", MAXABS);
+    aggregators.put("maxabs", MINABS);
+    aggregators.put("sumabs", SUMABS);
   }
 
   private Aggregators() {
@@ -153,6 +168,41 @@ public final class Aggregators {
     }
     
   }
+  
+  private static final class SumABS implements Aggregator {
+	    private final Interpolation method;
+	    private final String name;
+	    
+	    public SumABS(final Interpolation method, final String name) {
+	      this.method = method;
+	      this.name = name;
+	    }
+	    
+	    public long runLong(final Longs values) {
+	      long result = Math.abs(values.nextLongValue());
+	      while (values.hasNextValue()) {
+	        result += Math.abs(values.nextLongValue());
+	      }
+	      return result;
+	    }
+
+	    public double runDouble(final Doubles values) {
+	      double result = Math.abs(values.nextDoubleValue());
+	      while (values.hasNextValue()) {
+	        result += Math.abs(values.nextDoubleValue());
+	      }
+	      return result;
+	    }
+
+	    public String toString() {
+	      return name;
+	    }
+
+	    public Interpolation interpolationMethod() {
+	      return method;
+	    }
+	    
+	  }
   
   private static final class Count implements Aggregator {
 	    private final Interpolation method;
@@ -309,6 +359,47 @@ public final class Aggregators {
     }
     
   }
+  
+  private static final class MinABS implements Aggregator {
+	    private final Interpolation method;
+	    private final String name;
+	    
+	    public MinABS(final Interpolation method, final String name) {
+	      this.method = method;
+	      this.name = name;
+	    }
+	    
+	    public long runLong(final Longs values) {
+	      long min = Math.abs(values.nextLongValue());
+	      while (values.hasNextValue()) {
+	        final long val = Math.abs(values.nextLongValue());
+	        if (val < min) {
+	          min = val;
+	        }
+	      }
+	      return min;
+	    }
+
+	    public double runDouble(final Doubles values) {
+	      double min = Math.abs(values.nextDoubleValue());
+	      while (values.hasNextValue()) {
+	        final double val = Math.abs(values.nextDoubleValue());
+	        if (val < min) {
+	          min = val;
+	        }
+	      }
+	      return min;
+	    }
+
+	    public String toString() {
+	      return name;
+	    }
+
+	    public Interpolation interpolationMethod() {
+	      return method;
+	    }
+	    
+	  }
 
   private static final class Max implements Aggregator {
     private final Interpolation method;
@@ -350,6 +441,47 @@ public final class Aggregators {
     }
     
   }
+  
+  private static final class MaxABS implements Aggregator {
+	    private final Interpolation method;
+	    private final String name;
+	    
+	    public MaxABS(final Interpolation method, final String name) {
+	      this.method = method;
+	      this.name = name;
+	    }
+	    
+	    public long runLong(final Longs values) {
+	      long max = Math.abs(values.nextLongValue());
+	      while (values.hasNextValue()) {
+	        final long val = Math.abs(values.nextLongValue());
+	        if (val > max) {
+	          max = val;
+	        }
+	      }
+	      return max;
+	    }
+
+	    public double runDouble(final Doubles values) {
+	      double max = Math.abs((values.nextDoubleValue()));
+	      while (values.hasNextValue()) {
+	        final double val = Math.abs(values.nextDoubleValue());
+	        if (val > max) {
+	          max = val;
+	        }
+	      }
+	      return max;
+	    }
+
+	    public String toString() {
+	      return name;
+	    }
+
+	    public Interpolation interpolationMethod() {
+	      return method;
+	    }
+	    
+	  }
 
   private static final class Avg implements Aggregator {
     private final Interpolation method;

@@ -122,7 +122,7 @@ public class RateSpanDelta implements SeekableView {
 		  if(dp.toDouble() < 0 || dp.toDouble() > options.getCounterMax()){
 			  continue;
 		  } else {
-			  next_data.reset(source.next());
+			  next_data.reset(dp);
 			  break;
 		  }
 	  }

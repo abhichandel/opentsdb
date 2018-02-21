@@ -35,6 +35,23 @@ public class TestRateSpan {
     MutableDataPoint.ofLongValue(1357005600000L, 40),
     MutableDataPoint.ofDoubleValue(1357005600000L + 2000000, 50.0)
   };
+  
+  private static final DataPoint[] METER_DATA_POINTS = new DataPoint[] {
+	  MutableDataPoint.ofDoubleValue(1493975428000L, 736.3599853515625),
+      MutableDataPoint.ofDoubleValue(1493975731000L, 740.8499755859375),
+      MutableDataPoint.ofDoubleValue(1493976031000L, 745.0599975585938),
+      MutableDataPoint.ofDoubleValue(1493976331000L, 749.0999755859375),
+      MutableDataPoint.ofDoubleValue(1493976633000L, 753.2999877929688),
+      MutableDataPoint.ofDoubleValue(1494052262000L, 756.77001953125),
+      MutableDataPoint.ofDoubleValue(1494052561000L, 759.719970703125),
+      MutableDataPoint.ofDoubleValue(1494052862000L, 762.4600219726562),
+      MutableDataPoint.ofDoubleValue(1494053161000L, 765.1699829101562),
+      MutableDataPoint.ofDoubleValue(1494053461000L, 767.8200073242188),
+      MutableDataPoint.ofDoubleValue(1494238038000L, 771.8099975585938),
+      MutableDataPoint.ofDoubleValue(1494238340000L, 775.7100219726562),
+      MutableDataPoint.ofDoubleValue(1494238639000L, 779.489990234375),
+      MutableDataPoint.ofDoubleValue(1494238940000L, 783.0700073242188)
+	  };
 
   private static final DataPoint[] RATE_DATA_POINTS = new DataPoint[] {
     MutableDataPoint.ofDoubleValue(1356998400000L, 40.0 / 1356998400),
@@ -75,6 +92,24 @@ public class TestRateSpan {
 
   @Test
   public void testRateSpan() {
+    RateSpan rate_span = new RateSpan(source, options);
+    // The first rate is between the time zero and the first data point.
+    assertTrue(rate_span.hasNext());
+    DataPoint dp = rate_span.next();
+    assertFalse(dp.isInteger());
+    assertEquals(1356998400000L, dp.timestamp());
+    assertEquals(40.0 / 1356998400L, dp.doubleValue(), 0);
+    // The second rate comes from the first two data points.
+    assertTrue(rate_span.hasNext());
+    DataPoint dp2 = rate_span.next();
+    assertFalse(dp2.isInteger());
+    assertEquals(1356998400000L + 2000000, dp2.timestamp());
+    assertEquals(10.0 / 2000.0, dp2.doubleValue(), 0);
+  }
+  
+  
+  @Test
+  public void testRateSpanForEnergy() {
     RateSpan rate_span = new RateSpan(source, options);
     // The first rate is between the time zero and the first data point.
     assertTrue(rate_span.hasNext());

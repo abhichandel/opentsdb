@@ -175,44 +175,44 @@ public class TestDownsampler {
     assertEquals(BASE_TIME + 50000L, timestamps_in_millis.get(5).longValue());
   }
   
-//  @Test
-//  public void testDownsampler_month() {
-//    source = spy(SeekableViewsForTest.fromArray(new DataPoint[] {
-//        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 0, 100), //5:30
-//        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 1, 110), //6:00
-//        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 2, 120), //6:30
-//        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 3, 130), //7:00
-//        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 4, 140), //7:30
-//        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 5, 150), //8:00
-//        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 6, 160), //8:30
-//        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 7, 170), //9:00
-//        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 8, 180), //9:30
-//        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 9, 190), //10:00
-//        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 10, 200), //10:30
-//        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 11, 210), //11:00
-//        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 12, 220), //11:30
-//        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 13, 230) //12:00
-//    }));
-//    downsampler = new Downsampler(source, 60*60*1000, SUM, "n", TimeZone.getTimeZone("IST"), new RateOptions(false, RateOptions.MONOTONIC_INCREMEMNT_COUNTER, 32767,1.2));
-//    verify(source, never()).next();
-//    List<Double> values = Lists.newArrayList();
-//    List<Long> timestamps_in_millis = Lists.newArrayList();
-//    while (downsampler.hasNext()) {
-//      DataPoint dp = downsampler.next();
-//      assertFalse(dp.isInteger());
-//      values.add(dp.doubleValue());
-//      timestamps_in_millis.add(dp.timestamp());
-//    }
-//
-//    
-//    assertEquals(2, values.size());
-//    assertEquals(910, values.get(0), 0.0000001);
-//    assertEquals(1400, values.get(1), 0.0000001);
-//    assertEquals(1356985800000l, timestamps_in_millis.get(0).longValue());
-//    assertEquals(1357011000000l, timestamps_in_millis.get(1).longValue());
-////    assertEquals(1357000200000l, timestamps_in_millis.get(1).longValue());
-////    assertEquals(1357003800000l, timestamps_in_millis.get(2).longValue());
-//  }
+  @Test
+  public void testDownsampler_month() {
+    source = spy(SeekableViewsForTest.fromArray(new DataPoint[] {
+        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 0, 100), //5:30
+        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 1, 110), //6:00
+        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 2, 120), //6:30
+        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 3, 130), //7:00
+        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 4, 140), //7:30
+        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 5, 150), //8:00
+        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 6, 160), //8:30
+        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 7, 170), //9:00
+        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 8, 180), //9:30
+        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 9, 190), //10:00
+        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 10, 200), //10:30
+        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 11, 210), //11:00
+        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 12, 220), //11:30
+        MutableDataPoint.ofDoubleValue(BASE_TIME + 30*60*1000L * 13, 230) //12:00
+    }));
+    downsampler = new Downsampler(source, 60*60*1000, SUM, "n", TimeZone.getTimeZone("IST"), new RateOptions(false, RateOptions.MONOTONIC_INCREMEMNT_COUNTER, 32767,1.2));
+    verify(source, never()).next();
+    List<Double> values = Lists.newArrayList();
+    List<Long> timestamps_in_millis = Lists.newArrayList();
+    while (downsampler.hasNext()) {
+      DataPoint dp = downsampler.next();
+      assertFalse(dp.isInteger());
+      values.add(dp.doubleValue());
+      timestamps_in_millis.add(dp.timestamp());
+    }
+
+    
+    assertEquals(2, values.size());
+    assertEquals(910, values.get(0), 0.0000001);
+    assertEquals(1400, values.get(1), 0.0000001);
+    assertEquals(1356985800000l, timestamps_in_millis.get(0).longValue());
+    assertEquals(1357011000000l, timestamps_in_millis.get(1).longValue());
+//    assertEquals(1357000200000l, timestamps_in_millis.get(1).longValue());
+//    assertEquals(1357003800000l, timestamps_in_millis.get(2).longValue());
+  }
 
   @Test
   public void testDownsampler_shifts() {
